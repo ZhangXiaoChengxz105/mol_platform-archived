@@ -31,11 +31,5 @@ result = {
     }
 '''
 
-# 批量预测（支持字典列表或SMILES列表）
-batch_input = [
-    {"smiles": "CCO", "id": "test1"},
-    "CCN"
-]
-batch_results = gnn.predict(batch_input)
 
 
