@@ -43,5 +43,6 @@ def smiles_to_graph(smiles):
     return Data(
         x=torch.tensor(atom_features, dtype=torch.long),
         edge_index=torch.tensor(edge_index, dtype=torch.long).t().contiguous(),
-        edge_attr=torch.tensor(edge_attr, dtype=torch.long)
+        edge_attr=torch.tensor(edge_attr, dtype=torch.long),
+        y=None
     )
