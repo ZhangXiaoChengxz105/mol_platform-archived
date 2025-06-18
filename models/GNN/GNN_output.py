@@ -1,3 +1,4 @@
+# 这个文件运行时需要放在根目录（mol_platform）
 from models.GNN.GNN_data import smiles_to_graph
 from models.GNN.GNN_model import GNN
 import torch
