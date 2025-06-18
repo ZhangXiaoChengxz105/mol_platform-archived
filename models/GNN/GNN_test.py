@@ -1,3 +1,4 @@
+# 这个文件运行时需要放在根目录（mol_platform）
 from models.GNN.GNN_output import gnn_predict
 
 
