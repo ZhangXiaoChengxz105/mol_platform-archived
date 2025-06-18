@@ -1,7 +1,6 @@
 import torch
 from torch_geometric.data import Batch
-
-from ginet_finetune import GINet
+from models.GNN.ginet_finetune import GINet
 
 import sys
 import os

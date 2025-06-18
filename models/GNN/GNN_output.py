@@ -1,5 +1,5 @@
-from GNN_data import smiles_to_graph
-from GNN_model import GNN
+from models.GNN.GNN_data import smiles_to_graph
+from models.GNN.GNN_model import GNN
 import torch
 import os
 def gnn_predict(name, target, smiles):

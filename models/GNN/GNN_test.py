@@ -1,4 +1,4 @@
-from GNN_output import gnn_predict
+from models.GNN.GNN_output import gnn_predict
 
 
 def test_prediction(name, target, smiles):
