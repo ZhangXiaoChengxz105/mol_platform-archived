@@ -1,8 +1,11 @@
-# 这个文件运行时需要放在根目录（mol_platform）
-from models.GNN.GNN_data import smiles_to_graph
-from models.GNN.GNN_model import GNN
 import torch
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from GNN_data import smiles_to_graph
+from GNN_model import GNN
+
 def gnn_predict(name, target, smiles):
     """
     简单的GNN预测接口

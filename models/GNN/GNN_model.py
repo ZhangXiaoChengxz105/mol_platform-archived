@@ -1,10 +1,12 @@
-import torch
-from torch_geometric.data import Batch
-from models.GNN.ginet_finetune import GINet
-
 import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import torch
+from torch_geometric.data import Batch
+from ginet_finetune import GINet
+
 from base_model import base_model
 '''
 class base_model:
@@ -24,7 +26,7 @@ class GNN(base_model):
         super().__init__(name, path)      
         # 初始化模型结构
         self.model = GINet(task=self.task)
-    
+        self.model.eval()
     def load_weights(self, path=None):
         """实现微调模型加载逻辑"""
         if path is None:

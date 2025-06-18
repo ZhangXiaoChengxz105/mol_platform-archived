@@ -1,5 +1,8 @@
-# 这个文件运行时需要放在根目录（mol_platform）
-from models.GNN.GNN_output import gnn_predict
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from GNN_output import gnn_predict
 
 
 def test_prediction(name, target, smiles):
