@@ -6,15 +6,14 @@ from GNN_output import gnn_predict
 
 
 def test_prediction(name, target, smiles):
-    class_result = gnn_predict(name, target, smiles)
-    print(f"SMILES: {class_result['smiles']}")
+    result = gnn_predict(name, target, smiles)
+    print(f"SMILES: {result['smiles']}")
     print(f"Name: {name}")
     print(f"Target: {target}")
-    print(f"Task: {class_result['task']}")
-    print(f"Prediction/value: {class_result['prediction']}")
-    print(f"Label: {class_result['label']}")
-    print(f"Confidence: {class_result['confidence']}")
-    return class_result
+    print(f"Task: {result['task']}")
+    print(f"Prediction/value: {result['prediction']}")
+    print(f"Label: {result['label']}")
+    return result
 
 
 if __name__ == "__main__":

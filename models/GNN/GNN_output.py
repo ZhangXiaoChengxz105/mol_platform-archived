@@ -2,9 +2,11 @@ import torch
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from GNN_data import smiles_to_graph
 from GNN_model import GNN
+from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
 def gnn_predict(name, target, smiles):
     """
@@ -16,6 +18,7 @@ def gnn_predict(name, target, smiles):
     Returns:
         预测结果
     """
+    validate_datasets_measure_names(name, target)
     path = os.path.join("models", "GNN_finetune", f"{name}_{target}.pth")
     # 创建模型
     model = GNN(name)
@@ -34,7 +37,6 @@ def gnn_predict(name, target, smiles):
         pred_probs = torch.softmax(pred_logits, dim=1)
         result["prediction"] = pred_probs[0][1].item()  # 正类概率
         result["label"] = 1 if result["prediction"] > 0.5 else 0
-        result["confidence"] = max(pred_probs[0]).item()  # 最大概率值作为置信度
     elif model.task == "regression":
         # 回归任务处理
         result["prediction"] = pred_logits.item()  # 直接输出预测值
