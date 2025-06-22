@@ -288,7 +288,8 @@ class MultitaskModel(pl.LightningModule):
         tensorboard_logs = {}
         for dataset_idx, batch_outputs in enumerate(outputs):
             dataset = self.hparams.dataset_names[dataset_idx]
-
+            # 检查是否存在两个类别
+            
             preds = torch.cat([x["pred"] for x in batch_outputs])
             actuals = torch.cat([x["actual"] for x in batch_outputs])
             masks = torch.cat([x["mask"] for x in batch_outputs])
@@ -311,20 +312,35 @@ class MultitaskModel(pl.LightningModule):
                 actuals_task = torch.masked_select(actuals_cpu[:,i], masks[:,i])
                 preds_task = torch.masked_select(preds_cpu[:,i], masks[:,i])
                 val_loss_task = self.loss(preds_task, actuals_task)
-                auc=roc_auc_score(actuals_task.cpu().numpy(),preds_task.cpu().numpy())
-                vals.append(val_loss_task)
-                aucs.append(auc)
-            average_auc = torch.mean(torch.tensor(aucs))
-            val_loss = torch.mean(torch.tensor(vals))
-            print(dataset, ' loss:', val_loss.item())
-            print(dataset, ' auc:', average_auc.item())
-            tensorboard_logs.update(
-                {
-                    # dataset + "_avg_val_loss": avg_loss,
+                # ------------------- 新增类别检查 -------------------
+                if len(actuals_task) == 0:
+                    print(f"Task {i}: No valid samples after masking")
+                    continue  # 跳过无有效样本的任务
+                
+                actuals_np = actuals_task.cpu().numpy()
+                if len(np.unique(actuals_np)) < 2:
+                    print(f"Task {i}: Only one class present in labels")
+                    continue  # 跳过单类别任务
+                # -------------------------------------------------
+                
+                val_loss_task = self.loss(preds_task, actuals_task)
+                try:
+                    auc = roc_auc_score(actuals_np, preds_task.cpu().numpy())
+                    aucs.append(auc)
+                    vals.append(val_loss_task)
+                except Exception as e:
+                    print(f"Task {i} error: {str(e)}")
+            if aucs:  # 仅当有有效任务时计算平均指标
+                average_auc = torch.mean(torch.tensor(aucs))
+                val_loss = torch.mean(torch.tensor(vals))
+                print(dataset, ' loss:', val_loss.item())
+                print(dataset, ' auc:', average_auc.item())
+                tensorboard_logs.update({
                     self.hparams.dataset_name + "_" + dataset + "_loss": val_loss,
                     self.hparams.dataset_name + "_" + dataset + "_auc": average_auc,
-                }
-            )
+                })
+            else:
+                print(f"{dataset}: No valid tasks to compute metrics")
 
         if (
             tensorboard_logs[self.hparams.dataset_name + "_valid_loss"]
