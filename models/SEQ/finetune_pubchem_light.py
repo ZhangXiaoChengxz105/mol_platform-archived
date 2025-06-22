@@ -24,6 +24,9 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score
 from utils import normalize_smiles
 
+
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+
 # create a function (this my favorite choice)
 def RMSELoss(yhat,y):
     return torch.sqrt(torch.mean((yhat-y)**2))
@@ -85,8 +88,7 @@ class LightningModule(pl.LightningModule):
             super().__init__()
             self.desc_skip_connection = True 
             self.fcs = []  # nn.ModuleList()
-            print('dropout is {}'.format(dropout))
-
+            # print('dropout is {}'.format(dropout))
             self.fc1 = nn.Linear(smiles_embed_dim, smiles_embed_dim)
             self.dropout1 = nn.Dropout(dropout)
             self.relu1 = nn.GELU()
@@ -270,7 +272,8 @@ class LightningModule(pl.LightningModule):
             dataset = self.hparams.dataset_names[dataset_idx]
             print("x_val_loss: {}".format(batch_outputs[0]['val_loss'].item()))
             avg_loss = torch.stack([x["val_loss"] for x in batch_outputs]).mean()
-            preds = torch.cat([x["pred"] for x in batch_outputs])
+            pred_list = [x["pred"].unsqueeze(0) if x["pred"].dim() == 0 else x["pred"] for x in batch_outputs] # solve 1 item batch problem
+            preds = torch.cat(pred_list)
             actuals = torch.cat([x["actual"] for x in batch_outputs])
             val_loss = self.loss(preds, actuals)
 
@@ -313,7 +316,7 @@ class LightningModule(pl.LightningModule):
 
         print("Validation: Current Epoch", self.current_epoch)
         append_to_file(
-            os.path.join(self.hparams.results_dir, "results_" + ".csv"),
+            os.path.join(self.hparams.results_dir, "results_" + self.hparams.measure_name + ".csv"),
             f"{self.hparams.measure_name}, {self.current_epoch},"
             + f"{tensorboard_logs[self.hparams.measure_name + '_valid_loss']},"
             + f"{tensorboard_logs[self.hparams.measure_name + '_test_loss']},"
@@ -543,10 +546,24 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
 
+    monitor = f"{margs.measure_name}_min_valid_loss"
     checkpoint_path = os.path.join(checkpoints_folder, margs.measure_name)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(period=1, save_last=True, dirpath=checkpoint_dir, filename='checkpoint', verbose=True)
-
-    print(margs)
+    best_callback = pl.callbacks.ModelCheckpoint(
+      monitor=monitor,  # 必须与self.log()完全一致
+      mode='min',
+      dirpath=checkpoint_dir,
+      filename=f'{margs.dataset_name}_{margs.measure_name}',  # 动态引用指标
+      save_top_k=1,
+      save_weights_only=True
+    )
+    earlystop_callback = EarlyStopping(
+        monitor=monitor,               # 监控验证集损失
+        min_delta=0.0001,               # 最小变化阈值
+        patience=50,                   # 停止前等待的epoch数
+        verbose=True,                  # 打印停止信息
+        mode="min"                     # 监控指标越小越好
+    )
 
     logger = TensorBoardLogger(
         save_dir=checkpoint_root,
@@ -580,7 +597,7 @@ def main():
         gpus=1,
         logger=logger,
         resume_from_checkpoint=resume_from_checkpoint,
-        checkpoint_callback=checkpoint_callback,
+        callbacks=[checkpoint_callback, best_callback, earlystop_callback],
         num_sanity_val_steps=0,
     )
 

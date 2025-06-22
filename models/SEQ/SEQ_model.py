@@ -1,5 +1,4 @@
 import torch
-import yaml
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -8,12 +7,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pathlib import Path
 from finetune_pubchem_light import LightningModule as RM                    # regression model
 from finetune_pubchem_light_classification import LightningModule as CM     # classification model
-from finetune_pubchem_light_classification import LightningModule as MCM    # multitask_classification model
+from finetune_pubchem_light_classification_multitask import MultitaskModel as MM    # multitask_classification model
 
 from tokenizer.tokenizer import MolTranBertTokenizer
 from argparse import Namespace
 from fast_transformers.masking import LengthMask as LM
 
+from check_utils import get_datasets_measure_names
 from base_model import base_model
 '''
 class base_model:
@@ -32,11 +32,8 @@ class SEQ(base_model):
     def __init__(self, name, path):
         super().__init__(name, path)
         # SEQ细分task
-        if self.name in ["tox21","clintox","muv","sider"]:
+        if self.name in ["Tox21","ClinTox","MUV","SIDER"]:
             self.task = "classification_multitask"
-        # 加载hparams.yaml配置
-        with open(Path(__file__).parent / "hparams.yaml", "r") as f:
-            self.hparams = yaml.safe_load(f)
         # 初始化tokenizer
         self.tokenizer = MolTranBertTokenizer("models/SEQ/bert_vocab.txt")
         self.model = None
@@ -44,9 +41,9 @@ class SEQ(base_model):
     def load_weights(self, path=None):
         load_path = path if path is not None else self.path
         if not load_path:
-                raise ValueError("必须提供模型路径（path参数或初始化时的path）")
+            raise ValueError("必须提供模型路径（path参数或初始化时的path）")
         
-        config = self.configs(self.task, **self.hparams).config
+        config = self.configs(self.task, dataset_name=self.name).config
         config = Namespace(**config)
         self.model = self.get_model(config)
         
@@ -59,7 +56,6 @@ class SEQ(base_model):
             except Exception as e:
                 raise RuntimeError(f"权重加载失败: {str(e)}")
         elif load_path.endswith(".ckpt"):
-            
             try:
                 # 初始化模型（参数与pubchem完全一致）
                 checkpoint = torch.load(load_path, map_location='cpu')  # 加载到 CPU
@@ -70,12 +66,12 @@ class SEQ(base_model):
                 self.model.load_state_dict(model_state_dict)
                 self.model.eval()
                 self.model.net.eval()
-                print("load ckpt success!")
-
+                print("load ckpt success!\n\n")
             except Exception as e:
                 raise RuntimeError(f"权重加载失败: {str(e)}")
         else:
             print("invalid path!")
+
     def predict(self, data):
         if not self.model:
             raise RuntimeError("请先调用load_weights()")
@@ -95,13 +91,18 @@ class SEQ(base_model):
         with torch.no_grad():
             return self.model.net(smiles_emb)
 
-    def get_model(self,config):
+    def get_model(self, config):
         if self.task == "classification_multitask":
-            return  MCM(config, self.tokenizer)
+            print("\nChoose multitask-classification model\n\n")
+            return MM(config, self.tokenizer)
+        
         elif self.task == "classification":
+            print("\nchoose classification model\n\n")
             return CM(config, self.tokenizer)
         else:
-            return RM(config, self.tokenizer)   
+            print("\nChoose regression model\n\n")
+            return RM(config, self.tokenizer) 
+
     class configs:
         """提供完整默认值的配置类"""
         
@@ -114,7 +115,7 @@ class SEQ(base_model):
             'd_dropout': 0.1,
             'n_embd': 768,
             'fc_h': 512,
-            
+            'num_tasks': None,
             # Train参数
             'n_batch': 512,
             'from_scratch': False,
@@ -140,12 +141,13 @@ class SEQ(base_model):
             'smiles_embedding': "/dccstor/medscan7/smallmolecule/runs/ba-predictor/small-data/embeddings/protein/ba_embeddings_tanh_512_2986138_2.pt",
             'aug': None,
             'num_classes': None,
-            'dataset_name': "sol",
+            'dataset_name': None,
             'measure_name': "measure",
             'checkpoints_folder': "models/SEQ_finetune",  # 必填项
             'checkpoint_root': None,
             'data_root': "/dccstor/medscan7/smallmolecule/runs/ba-predictor/small-data/affinity",
             'batch_size': 128,
+            
         }
         
         # 任务特定默认值（覆盖命令行默认值）
@@ -164,15 +166,13 @@ class SEQ(base_model):
                 # 'mode': 'multitask_cls',  # 训练脚本未显式设置
             }
         }
-        
+
         def __init__(self, task_type=None, **kwargs):
             # 初始化基础配置（命令行默认值）
             self.config = self.CMD_DEFAULTS.copy()
-            
             # 合并任务特定配置
             if task_type in self.TASK_DEFAULTS:
                 self.config.update(self.TASK_DEFAULTS[task_type])
-            
             # 解析命令行风格参数
             self._parse_cmd_params(kwargs)
             
@@ -183,6 +183,9 @@ class SEQ(base_model):
             if not self.config.get('checkpoints_folder'):
                 raise ValueError("checkpoints_folder 为必填参数")
             
+            # 设置 measure_names 和 num_tasks
+            self._set_measure_name()
+
         def _parse_cmd_params(self, kwargs):
             """解析命令行风格的参数格式"""
             # 处理dims参数（字符串转列表）
@@ -196,3 +199,16 @@ class SEQ(base_model):
             for param in bool_params:
                 if param in kwargs and isinstance(kwargs[param], str):
                     kwargs[param] = kwargs[param].lower() in ['true', '1', 'yes']
+
+        def _set_measure_name(self):
+            dataset_name = self.config.get('dataset_name')
+            try:
+                if dataset_name in ["Tox21", "ClinTox", "MUV", "SIDER"]:
+                    self.config['measure_names'] = get_datasets_measure_names(dataset_name)
+                else:
+                    self.config['measure_names'] = []
+                self.config['num_tasks'] = len(self.config.get('measure_names', []))
+            except ValueError as e:
+                print(f"错误: {e}，请检查数据集名称是否正确。")
+
+

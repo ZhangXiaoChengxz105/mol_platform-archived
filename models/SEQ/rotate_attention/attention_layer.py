@@ -20,7 +20,7 @@ class RotateAttentionLayer(AttentionLayer):
                  d_values=d_values, event_dispatcher=event_dispatcher)
 
         self.rotaryemb = RotaryEmbedding(d_keys)
-        print('Using Rotation Embedding')
+        # print('Using Rotation Embedding')
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
                 key_lengths):

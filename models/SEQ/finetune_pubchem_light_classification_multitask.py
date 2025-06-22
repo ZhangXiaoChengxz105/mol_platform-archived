@@ -26,6 +26,7 @@ from torch.utils.data import DataLoader
 from rdkit import Chem
 #from pytorch_lightning.plugins.ddp_plugin import DDPPlugin
 #from pytorch_lightning.plugins.sharded_plugin import DDPShardedPlugin
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 def normalize_smiles(smi, canonical, isomeric):
     try:
@@ -82,7 +83,6 @@ class MultitaskModel(pl.LightningModule):
         self.fcs = []  # nn.ModuleList()
         # self.dropout = nn.Dropout(p=dropout)
         self.loss = torch.nn.BCELoss()
-
         self.net = self.Net(
             config.n_embd, self.hparams.num_tasks, dims=config.dims, dropout=config.dropout,
         )
@@ -98,8 +98,7 @@ class MultitaskModel(pl.LightningModule):
             super().__init__()
             self.desc_skip_connection = True
             self.fcs = []  # nn.ModuleList()
-            print('dropout is {}'.format(dropout))
-
+            # print('dropout is {}'.format(dropout))
             self.fc1 = nn.Linear(smiles_embed_dim, smiles_embed_dim)
             self.dropout1 = nn.Dropout(dropout)
             self.relu1 = nn.GELU()
@@ -125,7 +124,7 @@ class MultitaskModel(pl.LightningModule):
                 z = self.final(z)
             #z = F.log_softmax(z) #classif
             #z = self.layers(smiles_emb)
-            return F.sigmoid(z)
+            return torch.sigmoid(z)
 
     class lm_layer(nn.Module):
         def __init__(self, n_embd, n_vocab):
@@ -337,33 +336,34 @@ class MultitaskModel(pl.LightningModule):
             self.min_loss[self.hparams.dataset_name + "min_test_loss"] = tensorboard_logs[
                 self.hparams.dataset_name + "_test_loss"
             ]
-            self.min_loss[self.hparams.dataset_name + "max_valid_auc"] = tensorboard_logs[
+            self.min_loss[self.hparams.dataset_name + "max_valid_rocauc"] = tensorboard_logs[
                 self.hparams.dataset_name + "_valid_auc"
             ]
-            self.min_loss[self.hparams.dataset_name + "max_test_auc"] = tensorboard_logs[
+            self.min_loss[self.hparams.dataset_name + "max_test_rocauc"] = tensorboard_logs[
                 self.hparams.dataset_name + "_test_auc"
             ]
             self.min_loss[self.hparams.dataset_name + "best_epoch"] = self.current_epoch
 
 
-            tensorboard_logs[self.hparams.dataset_name + "min_valid_loss"] = tensorboard_logs[
-                self.hparams.dataset_name + "_valid_loss"
-            ]
-            tensorboard_logs[self.hparams.dataset_name + "min_test_loss"] = tensorboard_logs[
-                self.hparams.dataset_name + "_test_loss"
-            ]
-            tensorboard_logs[self.hparams.dataset_name + "max_valid_auc"] = tensorboard_logs[
-                self.hparams.dataset_name + "_valid_auc"
-            ]
-            tensorboard_logs[self.hparams.dataset_name + "max_test_auc"] = tensorboard_logs[
-                self.hparams.dataset_name + "_test_auc"
-            ]
+        tensorboard_logs[self.hparams.dataset_name + "_min_valid_loss"] = self.min_loss[
+            self.hparams.dataset_name + "min_valid_loss"
+        ]
+        tensorboard_logs[self.hparams.dataset_name + "_min_test_loss"] = self.min_loss[
+            self.hparams.dataset_name + "min_test_loss"
+        ]
+        tensorboard_logs[self.hparams.dataset_name + "_max_test_rocauc"] = self.min_loss[
+            self.hparams.dataset_name + "max_test_rocauc"
+        ]
+        tensorboard_logs[self.hparams.dataset_name + "_max_valid_rocauc"] = self.min_loss[
+            self.hparams.dataset_name + "max_valid_rocauc"
+        ]
 
 
 
         self.logger.log_metrics(tensorboard_logs, self.global_step)
 
-        self.log(self.hparams.dataset_name + "_" + dataset + "_loss", val_loss)
+        for k in tensorboard_logs.keys():
+            self.log(k, tensorboard_logs[k])
 
         print("Validation: Current Epoch", self.current_epoch)
         
@@ -379,9 +379,9 @@ class MultitaskModel(pl.LightningModule):
             + ","
             + str(float(self.min_loss[self.hparams.dataset_name + "min_test_loss"]))
             + ","
-            + str(float(self.min_loss[self.hparams.dataset_name + "max_valid_auc"]))
+            + str(float(self.min_loss[self.hparams.dataset_name + "max_valid_rocauc"]))
             + ","
-            + str(float(self.min_loss[self.hparams.dataset_name + "max_test_auc"]))
+            + str(float(self.min_loss[self.hparams.dataset_name + "max_test_rocauc"]))
             + ","
             + str(int(self.min_loss[self.hparams.dataset_name + "best_epoch"]))
 
@@ -629,17 +629,25 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
 
+    monitor = f"{margs.dataset_name}_max_valid_rocauc"
     checkpoint_path = os.path.join(checkpoints_folder, margs.measure_name)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(period=1, save_last=True, dirpath=checkpoint_dir, filename='checkpoint', verbose=True)
     best_callback = pl.callbacks.ModelCheckpoint(
-      monitor="avg_val_loss",  # 必须与self.log()完全一致
+      monitor=monitor,  # 必须与self.log()完全一致
       mode='max',
       dirpath=checkpoint_dir,
       filename=f'{margs.dataset_name}',  # 动态引用指标
       save_top_k=1,
       save_weights_only=True
     )
-    
+    # 在其后添加早停回调配置
+    earlystop_callback = EarlyStopping(
+        monitor=monitor,               # 监控验证集损失
+        min_delta=0.0001,              # 最小变化阈值
+        patience=40,                   # 停止前等待的epoch数
+        verbose=True,                  # 打印停止信息
+        mode="max"                     # 监控指标越小越好
+    )
     print("\n\n\nmargs is:")
     print(margs)
     print("\n\n\n")
@@ -676,7 +684,7 @@ def main():
         gpus=1,
         logger=logger,
         resume_from_checkpoint=resume_from_checkpoint,
-        callbacks=[checkpoint_callback,best_callback],
+        callbacks=[checkpoint_callback, best_callback, earlystop_callback],
         num_sanity_val_steps=0,
     )
 
