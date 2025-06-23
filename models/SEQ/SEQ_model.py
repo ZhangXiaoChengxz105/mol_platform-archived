@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from pathlib import Path
 from finetune_pubchem_light import LightningModule as RM                    # regression model
@@ -27,7 +28,7 @@ class base_model:
         pass
 '''
 # models/SEQ/SEQ_model.py
-
+from SEQ_data import TOKENIZER
 class SEQ(base_model):
     def __init__(self, name, path):
         super().__init__(name, path)
@@ -35,7 +36,7 @@ class SEQ(base_model):
         if self.name in ["Tox21","ClinTox","MUV","SIDER"]:
             self.task = "classification_multitask"
         # 初始化tokenizer
-        self.tokenizer = MolTranBertTokenizer("models/SEQ/bert_vocab.txt")
+        self.tokenizer = TOKENIZER
         self.model = None
         
     def load_weights(self, path=None):

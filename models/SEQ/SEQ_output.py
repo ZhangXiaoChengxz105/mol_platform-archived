@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from SEQ_data import smiles_to_tokens
 from SEQ_model import SEQ
@@ -11,12 +12,13 @@ from check_utils import get_datasets_measure_names, validate_datasets_measure_na
 from time import time
 def seq_predict(name, target, smiles):
     validate_datasets_measure_names(name, target)
-    
+    # 构建绝对路径（假设models在项目根目录下）
     if name not in ["Tox21", "ClinTox","MUV","SIDER"]:
-        path_prefix = os.path.join("models", "SEQ_finetune", f"{name}_{target}")
+        path_prefix = os.path.join(models_root, "SEQ_finetune", f"{name}_{target}")
     else:
-        path_prefix = os.path.join("models", "SEQ_finetune", f"{name}")
+        path_prefix = os.path.join(models_root, "SEQ_finetune", f"{name}")
 
+    print(path_prefix)
     path_pth = os.path.join(path_prefix + ".pth")
     path_cktp = os.path.join(path_prefix + ".ckpt")
     if os.path.exists(path_pth):

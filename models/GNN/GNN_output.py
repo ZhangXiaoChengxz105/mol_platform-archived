@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from GNN_data import smiles_to_graph
 from GNN_model import GNN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
@@ -19,8 +19,7 @@ def gnn_predict(name, target, smiles):
         预测结果
     """
     validate_datasets_measure_names(name, target)
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(project_root, "GNN_finetune", f"{name}_{target}.pth")
+    path = os.path.join(models_root, "GNN_finetune", f"{name}_{target}.pth")
     # 创建模型
     model = GNN(name)
     model.load_weights(path)
