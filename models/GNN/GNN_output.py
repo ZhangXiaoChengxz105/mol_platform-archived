@@ -20,9 +20,15 @@ def gnn_predict(name, target, smiles):
     """
     validate_datasets_measure_names(name, target)
     path = os.path.join(models_root, "GNN_finetune", f"{name}_{target}.pth")
+    print("Input path:", path)
     # 创建模型
-    model = GNN(name)
-    model.load_weights(path)
+    if os.path.exists(path):
+        model = GNN(name, path)
+        model.load_weights(path)
+        print(".pth文件已加载，模型初始化成功")
+    else:
+        raise ValueError(f"模型文件不存在: {path}")
+    
     graph_data = smiles_to_graph(smiles)
     pred_logits = model.predict(graph_data)
     result = {

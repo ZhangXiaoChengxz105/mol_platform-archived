@@ -7,7 +7,7 @@ models/
 │   ├── SEQ_output.py           # 预测接口
 │   └── SEQ_test.py
 ├── SEQ_finetune/               # 预训练参数
-│   ├── BACE_Class.ckpt         # 各任务参数文件
+│   ├── BACE_Class.pth          # 各任务参数文件
 │   └── ...
 
 # **快速开始**

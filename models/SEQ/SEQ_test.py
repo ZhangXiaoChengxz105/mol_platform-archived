@@ -25,13 +25,13 @@ if __name__ == "__main__":
     # print("\n\nClassification task test:")
     # test_prediction(name, target, smiles)
     # 分类多任务测试
-    name = "ClinTox"
-    print("\n\nClassification multitask test:")
-    target = "FDA_APPROVED"
-    test_prediction(name, target, smiles)
+    # name = "ClinTox"
+    # print("\n\nClassification multitask test:")
+    # target = "FDA_APPROVED"
+    # test_prediction(name, target, smiles)
     
-    target = "CT_TOX"
-    test_prediction(name, target, smiles)
+    # target = "CT_TOX"
+    # test_prediction(name, target, smiles)
     # 回归任务测试
     name = "FreeSolv"
     target = "expt"

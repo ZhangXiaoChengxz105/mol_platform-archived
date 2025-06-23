@@ -6,44 +6,35 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from SEQ_data import smiles_to_tokens
-from SEQ_model import SEQ
+from SEQ_model import SEQ as SEQ
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
-from time import time
 def seq_predict(name, target, smiles):
     validate_datasets_measure_names(name, target)
     # 构建绝对路径（假设models在项目根目录下）
     if name not in ["Tox21", "ClinTox","MUV","SIDER"]:
-        path_prefix = os.path.join(models_root, "SEQ_finetune", f"{name}_{target}")
+        path = os.path.join(models_root, "SEQ_finetune", f"{name}_{target}.pth")
     else:
-        path_prefix = os.path.join(models_root, "SEQ_finetune", f"{name}")
-
-    print(path_prefix)
-    path_pth = os.path.join(path_prefix + ".pth")
-    path_cktp = os.path.join(path_prefix + ".ckpt")
-    if os.path.exists(path_pth):
-        model = SEQ(name, path_pth)
+        path = os.path.join(models_root, "SEQ_finetune", f"{name}.pth")
+    print("Input path:", path)
+    if os.path.exists(path):
+        model = SEQ(name, path)
         model.load_weights()
         print(".pth文件已加载，模型初始化成功")
-    elif os.path.exists(path_cktp):
-        model = SEQ(name, path_cktp)
-        model.load_weights()
-        print(".ckpt文件已加载，模型初始化成功")
     else:
-        raise ValueError(f"模型文件不存在: {path_pth} or {path_cktp}")
-    
+        raise ValueError(f"模型文件不存在: {path}")
     # 参数文件转换：
-    # torch.save(model.model.state_dict(), path_pth)
-    # print(f"模型权重已保存为 {path_pth}")
+    # torch.save(model.model.state_dict(), path)
+    # print(f"模型权重已保存为 {path}")
 
-    # if os.path.exists(path_cktp)&os.path.exists(path_pth):
-    #     os.remove(path_cktp)
-    #     print(f"已删除重复.ckpt 文件: {path_cktp}")
+    # if os.path.exists(path_ckpt)&os.path.exists(path):
+    #     os.remove(path_ckpt)
+    #     print(f"已删除重复.ckpt 文件: {path_ckpt}")
 
     # 3. 预测结果
     # 数据转换
     token_data = smiles_to_tokens(smiles)
-    print("\n\nsmiles转换后的tokens_emb: [input_ids, attention_mask]")
+    print("\nsmiles转换后的tokens_emb: [input_ids, attention_mask]")
     print(token_data)
     
     result = {
