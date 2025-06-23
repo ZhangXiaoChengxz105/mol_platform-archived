@@ -88,7 +88,8 @@ class LightningModule(pl.LightningModule):
             super().__init__()
             self.desc_skip_connection = True 
             self.fcs = []  # nn.ModuleList()
-            # print('dropout is {}'.format(dropout))
+            print('dropout is {}'.format(dropout))
+
             self.fc1 = nn.Linear(smiles_embed_dim, smiles_embed_dim)
             self.dropout1 = nn.Dropout(dropout)
             self.relu1 = nn.GELU()
@@ -559,7 +560,7 @@ def main():
     )
     earlystop_callback = EarlyStopping(
         monitor=monitor,               # 监控验证集损失
-        min_delta=0.0001,               # 最小变化阈值
+        min_delta=0.00001,             # 最小变化阈值
         patience=50,                   # 停止前等待的epoch数
         verbose=True,                  # 打印停止信息
         mode="min"                     # 监控指标越小越好
