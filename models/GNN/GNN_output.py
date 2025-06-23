@@ -19,7 +19,8 @@ def gnn_predict(name, target, smiles):
         预测结果
     """
     validate_datasets_measure_names(name, target)
-    path = os.path.join("models", "GNN_finetune", f"{name}_{target}.pth")
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(project_root, "GNN_finetune", f"{name}_{target}.pth")
     # 创建模型
     model = GNN(name)
     model.load_weights(path)
