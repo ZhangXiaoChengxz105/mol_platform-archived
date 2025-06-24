@@ -4,3 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# models parameter files
+*.pth
+*.ckpt
