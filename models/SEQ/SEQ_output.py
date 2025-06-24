@@ -41,7 +41,7 @@ def seq_predict(name, target, smiles):
         "smiles": smiles,
         "task": model.task,
         "prediction": None,
-        "label": None,
+        "label": None
     }
     if name not in ["Tox21", "ClinTox","MUV","SIDER"]:
         pred = model.predict(token_data)
