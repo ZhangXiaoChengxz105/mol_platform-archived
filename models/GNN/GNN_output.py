@@ -35,7 +35,7 @@ def gnn_predict(name, target, smiles):
         "smiles": smiles,
         "task": model.task,
         "prediction": None,
-        "label": None,
+        "label": None
         # "confidence": None
     }
     if model.task == "classification":
