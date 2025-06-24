@@ -1,2 +1,3 @@
 *.ckpt filter=lfs diff=lfs merge=lfs -text
 GNN_finetune.zip filter=lfs diff=lfs merge=lfs -text
+SEQ_finetune.zip filter=lfs diff=lfs merge=lfs -text

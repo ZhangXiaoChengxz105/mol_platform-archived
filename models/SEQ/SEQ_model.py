@@ -19,29 +19,36 @@ class base_model:
         pass
 '''
 # models/SEQ/SEQ_model.py
+from check_utils import get_datasets_measure_numbers
 from SEQ_data import TOKENIZER
 class SEQ(base_model):
     def __init__(self, name, path):
         super().__init__(name, path)
-        # SEQ细分task
+        # SEQ细分task, 初始化模型
         if self.name in ["Tox21","ClinTox","MUV","SIDER"]:
             self.task = "classification_multitask"
+            self.model = self.Net(dims = get_datasets_measure_numbers(name))
+        
+        elif self.task == "classification":
+            self.model = self.Net(dims = 2)
+        else:
+            self.model = self.Net()
         # 初始化tokenizer
         self.tokenizer = TOKENIZER
-        self.model = self.Net()
         self.tok_emb = nn.Embedding(len(self.tokenizer.vocab), 768)
 
     def load_weights(self, path=None):
         load_path = path if path is not None else self.path
         tokemb_path = load_path.replace(".pth","_tokemb.pth")
         if not load_path:
-            raise ValueError("必须提供模型路径（path参数或初始化时的path）")        
+            raise ValueError("必须提供模型路径(path参数或初始化时的path)")        
         if load_path.endswith(".pth"):
             try:
                 # 初始化模型（参数与pubchem完全一致）
                 combined = torch.load(load_path)
-                self.model.load_state_dict(combined["model"])
                 self.tok_emb.load_state_dict(combined["tok_emb"])
+                self.model.load_state_dict(combined["model"])
+                self.model.eval()
                 print("load Net success!\n\n")
             except Exception as e:
                 raise RuntimeError(f"权重加载失败: {str(e)}")
@@ -66,10 +73,9 @@ class SEQ(base_model):
 
     class Net(nn.Module):
             smiles_embed_dim = 768
-            dims = [768,768,768,1]
 
 
-            def __init__(self, smiles_embed_dim = smiles_embed_dim, dims=dims, dropout=0.2):
+            def __init__(self, smiles_embed_dim = smiles_embed_dim, dims=1, dropout=0.2):
                 super().__init__()
                 self.desc_skip_connection = True 
                 self.fcs = []  # nn.ModuleList()
@@ -81,7 +87,7 @@ class SEQ(base_model):
                 self.fc2 = nn.Linear(smiles_embed_dim, smiles_embed_dim)
                 self.dropout2 = nn.Dropout(dropout)
                 self.relu2 = nn.GELU()
-                self.final = nn.Linear(smiles_embed_dim, 1)
+                self.final = nn.Linear(smiles_embed_dim, dims)
 
             def forward(self, smiles_emb):
                 x_out = self.fc1(smiles_emb)
