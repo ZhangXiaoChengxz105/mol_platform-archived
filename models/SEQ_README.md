@@ -22,16 +22,21 @@ ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ## 2. 初始化模型（自动加载对应任务的预训练参数）
 SEQ = SEQ(task_name="BACE")  # 支持BBBP/HIV等SEQ_finetune目录下的任务
 
-## 3. 单样本预测
-smiles = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
+## 3. 样本预测
+smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
+smile2 = "CN(C)CCCN1c2ccccc2Sc3ccc(cc13)C(F)(F)F"
+smiles_list = [smile1,smile2]
 name = "BBBP"
 target = "p_np"
-result = SEQ_predict(name, target, smiles)
+results = SEQ_predict(name, target, smiles_list)
 '''
-result = {
+'''
+results = [
+    {
         "smiles": ,
         "task": ,
         "prediction": ,
         "label":
-    }
+    },
+]
 '''

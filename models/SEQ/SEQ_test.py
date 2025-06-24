@@ -5,35 +5,40 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from SEQ_output import seq_predict
 
 
-def test_prediction(name, target, smiles):
-    result = seq_predict(name, target, smiles)
-    print(f"SMILES: {result['smiles']}")
-    print(f"Name: {name}")
-    print(f"Target: {target}")
-    print(f"Task: {result['task']}")
-    print(f"Prediction/value: {result['prediction']}")
-    print(f"Label: {result['label']}")
-    return result
+def test_prediction(name, target, smiles_list):
+    results = seq_predict(name, target, smiles_list)
+    print(f"\n{name}_{target}_results:")
+    for i in range(len(smiles_list)):
+        result = results[i]
+        print(f"\nSMILES: {result['smiles']}")
+        print(f"Name: {name}")
+        print(f"Target: {target}")
+        print(f"Task: {result['task']}")
+        print(f"Prediction/value: {result['prediction']}")
+        print(f"Label: {result['label']}")
+    return results
 
 
 if __name__ == "__main__":
     # test
-    smiles = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
+    smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
+    smile2 = "CN(C)CCCN1c2ccccc2Sc3ccc(cc13)C(F)(F)F"
+    smiles_list = [smile1,smile2]
     # 分类任务测试
-    # name = "BBBP"
-    # target = "p_np"
-    # print("\n\nClassification task test:")
-    # test_prediction(name, target, smiles)
+    name = "BBBP"
+    target = "p_np"
+    print("\n\nClassification task test:")
+    test_prediction(name, target, smiles_list)
     # 分类多任务测试
-    # name = "ClinTox"
-    # print("\n\nClassification multitask test:")
-    # target = "FDA_APPROVED"
-    # test_prediction(name, target, smiles)
+    name = "ClinTox"
+    print("\n\nClassification multitask test:")
+    target = "FDA_APPROVED"
+    test_prediction(name, target, smiles_list)
     
-    # target = "CT_TOX"
-    # test_prediction(name, target, smiles)
+    target = "CT_TOX"
+    test_prediction(name, target, smiles_list)
     # 回归任务测试
     name = "FreeSolv"
     target = "expt"
     print("\n\nRegression task test:")
-    test_prediction(name, target, smiles)
+    test_prediction(name, target, smiles_list)

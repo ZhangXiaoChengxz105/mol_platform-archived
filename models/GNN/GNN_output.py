@@ -8,7 +8,7 @@ from GNN_data import smiles_to_graph
 from GNN_model import GNN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
-def gnn_predict(name, target, smiles):
+def gnn_predict(name, target, smiles_list):
     """
     简单的GNN预测接口
     Args:
@@ -28,23 +28,24 @@ def gnn_predict(name, target, smiles):
         print(".pth文件已加载，模型初始化成功")
     else:
         raise ValueError(f"模型文件不存在: {path}")
-    
-    graph_data = smiles_to_graph(smiles)
-    pred_logits = model.predict(graph_data)
-    result = {
-        "smiles": smiles,
-        "task": model.task,
-        "prediction": None,
-        "label": None
-        # "confidence": None
-    }
-    if model.task == "classification":
-        # 分类任务处理
-        pred_probs = torch.softmax(pred_logits, dim=1)
-        result["prediction"] = pred_probs[0][1].item()  # 正类概率
-        result["label"] = 1 if result["prediction"] > 0.5 else 0
-    elif model.task == "regression":
-        # 回归任务处理
-        result["prediction"] = pred_logits.item()  # 直接输出预测值
-
-    return result
+    # 预测
+    results = []
+    for i in range(len(smiles_list)):
+        smiles = smiles_list[i]
+        pred_logits = model.predict(smiles_to_graph(smiles))
+        result = {
+            "smiles": smiles,
+            "task": model.task,
+            "prediction": None,
+            "label": None
+        }
+        if model.task == "classification":
+            # 分类任务处理
+            pred_probs = torch.softmax(pred_logits, dim=1)
+            result["prediction"] = pred_probs[0][1].item()  # 正类概率
+            result["label"] = 1 if result["prediction"] > 0.5 else 0
+        elif model.task == "regression":
+            # 回归任务处理
+            result["prediction"] = pred_logits.item()  # 直接输出预测值
+        results.append(result)
+    return results

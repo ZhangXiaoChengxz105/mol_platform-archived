@@ -79,7 +79,7 @@ class SEQ(base_model):
                 super().__init__()
                 self.desc_skip_connection = True 
                 self.fcs = []  # nn.ModuleList()
-                print('dropout is {}'.format(dropout))
+                # print('dropout is {}'.format(dropout))
 
                 self.fc1 = nn.Linear(smiles_embed_dim, smiles_embed_dim)
                 self.dropout1 = nn.Dropout(dropout)
