@@ -59,26 +59,81 @@ class sequenceDataset(BaseDataset, dataProvider):
             edge_attr=torch.tensor(edge_attr, dtype=torch.long),
             y=None
         )
-    
-    def provideData(self, task_name):
+
+    def provideData(self, model_name):
+        """
+        Args:
+            model_name (str): The name of the dataset model, must match a key in smile_config.yaml.
+
+        Returns:
+            dict:
+                {
+                    "smiles_list": List[str],                   # List of valid SMILES strings
+                    "true_label_list": List[int | List[float]]  # Corresponding labels (single or multi-label)
+                }
+        """
         with open("smile_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
-        if task_name not in config["datasets"]:
-            raise ValueError(f"no such config")
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
 
-        task_cfg = config["datasets"][task_name]
+        task_cfg = config["datasets"][model_name]
         smiles_col = task_cfg["smiles_col"]
         label_cols = task_cfg["label_cols"]
 
-        data_list = []
+        smiles_list = []
+        true_label_list = []
+
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
-            label = row[label_cols[0]] if len(label_cols) == 1 else tuple(row[label_cols])
+            label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
 
-            graph = self.smiles_to_graph(smiles)
-            if graph is not None:
-                graph.y = label
-                data_list.append((graph, label))
+            if self.smiles_to_graph(smiles) is not None:
+                smiles_list.append(smiles)
+                true_label_list.append(label)
 
-        return data_list
+        return {
+            "smiles_list": smiles_list,
+            "true_label_list": true_label_list
+        }
+
+    def provideLabel(self, model_name, task_name=None):
+        """
+           Args:
+               model_name (str): Dataset name, must match a key in smile_config.yaml.
+               task_name (str, optional): Specific label column to extract. If None, all label columns are returned.
+
+           Returns:
+               List[int | float | List[float]]:
+                   A list of label values (single-label or multi-label vector) corresponding to valid SMILES entries.
+           """
+        import yaml
+
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        if task_name and task_name not in label_cols:
+            raise ValueError(f"task_name '{task_name}' not found in label columns: {label_cols}")
+
+        label_list = []
+
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+
+            if self.smiles_to_graph(smiles) is not None:
+                if task_name:
+                    label = row[task_name]
+                else:
+                    label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
+                label_list.append(label)
+
+        return label_list
+
