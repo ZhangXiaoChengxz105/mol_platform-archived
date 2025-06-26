@@ -8,4 +8,5 @@ __pycache__/
 # models parameter files
 *.pth
 *.ckpt
+*.pt
 *.zip

@@ -6,6 +6,7 @@ from SEQ_output import seq_predict
 
 
 def test_prediction(name, target, smiles_list):
+    print(f"\n测试 {name} 数据集, 目标: {target}")
     results = seq_predict(name, target, smiles_list)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
