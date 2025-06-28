@@ -2,12 +2,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from GNN_output import gnn_predict
+from FP_output import fp_predict
 
-
-def test_prediction(name, target, smiles_list):
+def test_fp_prediction(name, target, smiles_list):
+    """测试FP预测"""
     print(f"\n测试 {name} 数据集, 目标: {target}")
-    results = gnn_predict(name, target, smiles_list)
+    results = fp_predict(name, target, smiles_list)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]
@@ -19,20 +19,26 @@ def test_prediction(name, target, smiles_list):
         print(f"Label: {result['label']}")
     return results
 
-
 if __name__ == "__main__":
-    # test
+    # 测试数据
     smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
     smile2 = "CN(C)CCCN1c2ccccc2Sc3ccc(cc13)C(F)(F)F"
     smiles_list = [smile1,smile2]
+    
     # 分类任务测试
-    name = "BBBP"
-    target = "p_np"
-    print("\nClassification task test:")
-    test_prediction(name, target, smiles_list)
-
+    # name = "BBBP"
+    # print(f"\n分类任务测试 ({name}):")
+    # test_fp_prediction(name, "p_np", smiles_list)
+    
+    # # 多任务分类测试
+    # name = "ClinTox"
+    # print(f"\n分类任务测试 ({name}):")
+    # test_fp_prediction(name, "FDA_APPROVED", smiles_list)
+    # test_fp_prediction(name, "CT_TOX", smiles_list)
+    
     # 回归任务测试
     name = "FreeSolv"
-    target = "expt"
-    print("\nRegression task test:")
-    test_prediction(name, target, smiles_list)
+    print(f"\n回归任务测试 ({name}):")
+    test_fp_prediction(name, "expt", smiles_list)
+    
+    name = "qm7"

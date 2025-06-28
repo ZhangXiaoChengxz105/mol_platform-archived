@@ -63,4 +63,4 @@ def validate_datasets_measure_names(dataset_name, measure_name):
     if dataset_name not in dataset_names:
         raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {dataset_names}")
     if measure_name not in get_datasets_measure_names(dataset_name):
-        raise ValueError(f"无效的目标名称: {measure_name}, 获取对应属性失败\n支持的目标名称: {get_datasets_measure_names(dataset_name)}")
+        raise ValueError(f"数据集{dataset_name}无效的目标名称: {measure_name}, 获取对应属性失败\n支持的目标名称: {get_datasets_measure_names(dataset_name)}")
