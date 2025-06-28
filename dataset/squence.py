@@ -1,8 +1,6 @@
 from base import BaseDataset
 from provider import dataProvider
 import torch
-from rdkit import Chem
-from torch_geometric.data import Data
 import pandas as pd
 import yaml
 
@@ -15,62 +13,29 @@ class sequenceDataset(BaseDataset, dataProvider):
         pass
 
     @staticmethod
-    def smiles_to_graph(smiles):
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
+    def smiles_to_sequence(smiles, vocab=None, max_len=128):
+        if smiles is None:
             return None
-        
-        atom_features = []
-        for atom in mol.GetAtoms():
-            # 原子类型：确保在0-118范围内
-            atomic_num = atom.GetAtomicNum()
-            if atomic_num >= 119:
-                atomic_num = 0  # 使用0作为unknown token
-            
-            # 手性信息：确保在0-2范围内  
-            try:
-                chiral_tag = int(atom.GetChiralTag())
-                if chiral_tag >= 3:
-                    chiral_tag = 0
-            except:
-                chiral_tag = 0
-            
-            features = [atomic_num, chiral_tag]
-            atom_features.append(features)
-    
-        # 边特征处理
-        edge_index = []
-        edge_attr = []
-        for bond in mol.GetBonds():
-            i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            bond_type = int(bond.GetBondType())
-            bond_dir = int(bond.GetBondDir())
-        
-            # 确保键类型和方向在有效范围内
-            if bond_type >= 5: bond_type = 0
-            if bond_dir >= 3: bond_dir = 0
-        
-            edge_index.extend([[i, j], [j, i]])
-            edge_attr.extend([[bond_type, bond_dir], [bond_type, bond_dir]])
-    
-        return Data(
-            x=torch.tensor(atom_features, dtype=torch.long),
-            edge_index=torch.tensor(edge_index, dtype=torch.long).t().contiguous(),
-            edge_attr=torch.tensor(edge_attr, dtype=torch.long),
-            y=None
-        )
+
+        if vocab is None:
+            charset = sorted(list(set(smiles)))
+            vocab = {ch: i + 1 for i, ch in enumerate(charset)}
+
+        sequence = [vocab.get(ch, 0) for ch in smiles]
+        if len(sequence) > max_len:
+            sequence = sequence[:max_len]
+        else:
+            sequence += [0] * (max_len - len(sequence))
+
+        return torch.tensor(sequence, dtype=torch.long)
 
     def provideData(self, model_name):
         """
-        Args:
-            model_name (str): The name of the dataset model, must match a key in smile_config.yaml.
-
         Returns:
-            dict:
-                {
-                    "smiles_list": List[str],                   # List of valid SMILES strings
-                    "true_label_list": List[int | List[float]]  # Corresponding labels (single or multi-label)
-                }
+            dict: {
+                "input": torch.Tensor [N, max_len],    # SMILES 序列转化后的张量
+                "label": List[int or List[float]]      # 对应的标签
+            }
         """
         with open("smile_config.yaml", "r") as f:
             config = yaml.safe_load(f)
@@ -82,34 +47,33 @@ class sequenceDataset(BaseDataset, dataProvider):
         smiles_col = task_cfg["smiles_col"]
         label_cols = task_cfg["label_cols"]
 
-        smiles_list = []
-        true_label_list = []
+        vocab = self.build_vocab(smiles_col)
+        sequence_list = []
+        label_list = []
 
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
             label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
 
-            if self.smiles_to_graph(smiles) is not None:
-                smiles_list.append(smiles)
-                true_label_list.append(label)
+            seq = self.smiles_to_sequence(smiles, vocab)
+            if seq is not None:
+                sequence_list.append(seq)
+                label_list.append(label)
 
         return {
-            "smiles_list": smiles_list,
-            "true_label_list": true_label_list
+            "input": torch.stack(sequence_list),  # shape [N, max_len]
+            "label": label_list
         }
 
+    def build_vocab(self, smiles_col):
+        charset = set()
+        for s in self.data[smiles_col]:
+            if isinstance(s, str):
+                charset.update(list(s))
+        vocab = {ch: i + 1 for i, ch in enumerate(sorted(charset))}  # 0 = padding
+        return vocab
+
     def provideLabel(self, model_name, task_name=None):
-        """
-           Args:
-               model_name (str): Dataset name, must match a key in smile_config.yaml.
-               task_name (str, optional): Specific label column to extract. If None, all label columns are returned.
-
-           Returns:
-               List[int | float | List[float]]:
-                   A list of label values (single-label or multi-label vector) corresponding to valid SMILES entries.
-           """
-        import yaml
-
         with open("smile_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
@@ -121,14 +85,15 @@ class sequenceDataset(BaseDataset, dataProvider):
         label_cols = task_cfg["label_cols"]
 
         if task_name and task_name not in label_cols:
-            raise ValueError(f"task_name '{task_name}' not found in label columns: {label_cols}")
+            raise ValueError(f"task_name '{task_name}' not in label columns: {label_cols}")
 
+        vocab = self.build_vocab(smiles_col)
         label_list = []
 
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
-
-            if self.smiles_to_graph(smiles) is not None:
+            seq = self.smiles_to_sequence(smiles, vocab)
+            if seq is not None:
                 if task_name:
                     label = row[task_name]
                 else:
@@ -136,4 +101,5 @@ class sequenceDataset(BaseDataset, dataProvider):
                 label_list.append(label)
 
         return label_list
+
 

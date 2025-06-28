@@ -1,7 +1,11 @@
 from base import BaseDataset
 from provider import dataProvider
-# from torch_geometric.data import Data
 import pandas as pd
+import torch
+from rdkit import Chem
+import yaml
+from torch_geometric.data import Data
+
 
 class graphDataset(BaseDataset, dataProvider):
     def loadData(self):
@@ -11,64 +15,126 @@ class graphDataset(BaseDataset, dataProvider):
     def preprocessData(self):
         pass
 
-    def provideData(self, params):
-        task_name = params.get("task_name", None)
-        if not task_name:
-            raise ValueError("pls define task_name")
+    @staticmethod
+    def smiles_to_graph(smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return None
 
-        if task_name == 'BACE':
-            smiles_col = 'mol'
-        else:
-            smiles_col = 'smiles'
+        atom_features = []
+        for atom in mol.GetAtoms():
+            # 原子类型：确保在0-118范围内
+            atomic_num = atom.GetAtomicNum()
+            if atomic_num >= 119:
+                atomic_num = 0  # 使用0作为unknown token
 
-        label_map = {
-            'BBBP': ['p_np'],
-            'Tox21': [
-                "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD",
-                "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
-            ],
-            'ClinTox': ['CT_TOX', 'FDA_APPROVED'],
-            'HIV': ['HIV_active'],
-            'BACE': ['Class'],
-            'SIDER': [
-                "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues",
-                "Eye disorders", "Investigations", "Musculoskeletal and connective tissue disorders",
-                "Gastrointestinal disorders", "Social circumstances", "Immune system disorders",
-                "Reproductive system and breast disorders",
-                "Neoplasms benign, malignant and unspecified (incl cysts and polyps)",
-                "General disorders and administration site conditions", "Endocrine disorders",
-                "Surgical and medical procedures", "Vascular disorders",
-                "Blood and lymphatic system disorders", "Skin and subcutaneous tissue disorders",
-                "Congenital, familial and genetic disorders", "Infections and infestations",
-                "Respiratory, thoracic and mediastinal disorders", "Psychiatric disorders",
-                "Renal and urinary disorders", "Pregnancy, puerperium and perinatal conditions",
-                "Ear and labyrinth disorders", "Cardiac disorders", "Nervous system disorders",
-                "Injury, poisoning and procedural complications"
-            ],
-            'MUV': [
-                'MUV-852', 'MUV-600', 'MUV-810', 'MUV-712', 'MUV-737', 'MUV-858',
-                'MUV-713', 'MUV-733', 'MUV-652', 'MUV-466', 'MUV-832'
-            ],
-            'FreeSolv': ['expt'],
-            'ESOL': ['measured log solubility in mols per litre'],
-            'Lipo': ['exp'],
-            'qm7': ['u0_atom'],
-            'qm8': [
-                "E1-CC2", "E2-CC2", "f1-CC2", "f2-CC2", "E1-PBE0", "E2-PBE0",
-                "f1-PBE0", "f2-PBE0", "E1-CAM", "E2-CAM", "f1-CAM", "f2-CAM"
-            ],
-            'qm9': ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
+            # 手性信息：确保在0-2范围内
+            try:
+                chiral_tag = int(atom.GetChiralTag())
+                if chiral_tag >= 3:
+                    chiral_tag = 0
+            except:
+                chiral_tag = 0
+
+            features = [atomic_num, chiral_tag]
+            atom_features.append(features)
+
+        # 边特征处理
+        edge_index = []
+        edge_attr = []
+        for bond in mol.GetBonds():
+            i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+            bond_type = int(bond.GetBondType())
+            bond_dir = int(bond.GetBondDir())
+
+            # 确保键类型和方向在有效范围内
+            if bond_type >= 5: bond_type = 0
+            if bond_dir >= 3: bond_dir = 0
+
+            edge_index.extend([[i, j], [j, i]])
+            edge_attr.extend([[bond_type, bond_dir], [bond_type, bond_dir]])
+
+        return Data(
+            x=torch.tensor(atom_features, dtype=torch.long),
+            edge_index=torch.tensor(edge_index, dtype=torch.long).t().contiguous(),
+            edge_attr=torch.tensor(edge_attr, dtype=torch.long),
+            y=None
+        )
+
+    def provideData(self, model_name):
+        """
+        Args:
+            model_name (str): The name of the dataset model, must match a key in smile_config.yaml.
+
+        Returns:
+            dict:
+        {
+            "input": List[torch_geometric.data.Data],  # SMILES 转换后的图结构对象
+            "label": List[int | List[float]]           # 对应的标签（单标签或多标签）
         }
+        """
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
 
-        if task_name not in label_map:
-            raise ValueError(f"no task_name: {task_name}")
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
 
-        label_cols = label_map[task_name]
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
 
-        data_list = []
+        graph_list = []
+        label_list = []
+
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
-            label = row[label_cols[0]] if len(label_cols) == 1 else tuple(row[label_cols])
-            data_list.append((smiles, label))
+            label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
 
-        return data_list
+            graph = self.smiles_to_graph(smiles)
+            if graph is not None:
+                graph_list.append(graph)
+                label_list.append(label)
+
+        return {
+            "input": graph_list,  # List[torch_geometric.data.Data]
+            "label": label_list  # List[int or List[float]]
+        }
+
+    def provideLabel(self, model_name, task_name=None):
+        """
+           Args:
+               model_name (str): Dataset name, must match a key in smile_config.yaml.
+               task_name (str, optional): Specific label column to extract. If None, all label columns are returned.
+
+           Returns:
+               List[int | float | List[float]]:
+                   A list of label values (single-label or multi-label vector) corresponding to valid SMILES entries.
+           """
+        import yaml
+
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        if task_name and task_name not in label_cols:
+            raise ValueError(f"task_name '{task_name}' not found in label columns: {label_cols}")
+
+        label_list = []
+
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+
+            if self.smiles_to_graph(smiles) is not None:
+                if task_name:
+                    label = row[task_name]
+                else:
+                    label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
+                label_list.append(label)
+
+        return label_list

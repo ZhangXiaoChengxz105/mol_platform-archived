@@ -1,7 +1,11 @@
 from base import BaseDataset
 from provider import dataProvider
-# from dataset.utils import smiles_to_mol
 import pandas as pd
+from rdkit.Chem import AllChem
+import numpy as np
+import torch
+from rdkit import Chem
+import yaml
 
 class fingerprintDataset(BaseDataset, dataProvider):
     def loadData(self):
@@ -11,64 +15,81 @@ class fingerprintDataset(BaseDataset, dataProvider):
     def preprocessData(self):
         pass
 
-    def provideData(self, params):
-        task_name = params.get("task_name", None)
-        if not task_name:
-            raise ValueError("pls define task_name")
 
-        if task_name == 'BACE':
-            smiles_col = 'mol'
-        else:
-            smiles_col = 'smiles'
+    @staticmethod
+    def smiles_to_fingerprint(smiles, radius=2, n_bits=2048, as_tensor=True):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return None
 
-        label_map = {
-            'BBBP': ['p_np'],
-            'Tox21': [
-                "NR-AR", "NR-AR-LBD", "NR-AhR", "NR-Aromatase", "NR-ER", "NR-ER-LBD",
-                "NR-PPAR-gamma", "SR-ARE", "SR-ATAD5", "SR-HSE", "SR-MMP", "SR-p53"
-            ],
-            'ClinTox': ['CT_TOX', 'FDA_APPROVED'],
-            'HIV': ['HIV_active'],
-            'BACE': ['Class'],
-            'SIDER': [
-                "Hepatobiliary disorders", "Metabolism and nutrition disorders", "Product issues",
-                "Eye disorders", "Investigations", "Musculoskeletal and connective tissue disorders",
-                "Gastrointestinal disorders", "Social circumstances", "Immune system disorders",
-                "Reproductive system and breast disorders",
-                "Neoplasms benign, malignant and unspecified (incl cysts and polyps)",
-                "General disorders and administration site conditions", "Endocrine disorders",
-                "Surgical and medical procedures", "Vascular disorders",
-                "Blood and lymphatic system disorders", "Skin and subcutaneous tissue disorders",
-                "Congenital, familial and genetic disorders", "Infections and infestations",
-                "Respiratory, thoracic and mediastinal disorders", "Psychiatric disorders",
-                "Renal and urinary disorders", "Pregnancy, puerperium and perinatal conditions",
-                "Ear and labyrinth disorders", "Cardiac disorders", "Nervous system disorders",
-                "Injury, poisoning and procedural complications"
-            ],
-            'MUV': [
-                'MUV-852', 'MUV-600', 'MUV-810', 'MUV-712', 'MUV-737', 'MUV-858',
-                'MUV-713', 'MUV-733', 'MUV-652', 'MUV-466', 'MUV-832'
-            ],
-            'FreeSolv': ['expt'],
-            'ESOL': ['measured log solubility in mols per litre'],
-            'Lipo': ['exp'],
-            'qm7': ['u0_atom'],
-            'qm8': [
-                "E1-CC2", "E2-CC2", "f1-CC2", "f2-CC2", "E1-PBE0", "E2-PBE0",
-                "f1-PBE0", "f2-PBE0", "E1-CAM", "E2-CAM", "f1-CAM", "f2-CAM"
-            ],
-            'qm9': ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
-        }
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)
+        arr = np.zeros((n_bits,), dtype=np.int8)
+        AllChem.DataStructs.ConvertToNumpyArray(fp, arr)
 
-        if task_name not in label_map:
-            raise ValueError(f"no task_name: {task_name}")
+        if as_tensor:
+            return torch.tensor(arr, dtype=torch.float32)
+        return arr
 
-        label_cols = label_map[task_name]
 
-        data_list = []
+    def provideData(self, model_name):
+        """
+        Returns:
+            dict:
+                {
+                    "input": torch.Tensor [N, 2048],    # 每个 SMILES 转换后的 ECFP 指纹向量
+                    "label": List[int | List[float]]   # 对应标签列表
+                }
+        """
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        fingerprint_list = []
+        label_list = []
+
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
-            label = row[label_cols[0]] if len(label_cols) == 1 else tuple(row[label_cols])
-            data_list.append((smiles, label))
+            label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
 
-        return data_list
+            fp = self.smiles_to_fingerprint(smiles)
+            if fp is not None:
+                fingerprint_list.append(fp)
+                label_list.append(label)
+
+        return {
+            "input": torch.stack(fingerprint_list),  # Tensor shape: [N, 2048]
+            "label": label_list
+        }
+    def provideLabel(self, model_name, task_name=None):
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        if task_name and task_name not in label_cols:
+            raise ValueError(f"task_name '{task_name}' not found in label columns: {label_cols}")
+
+        label_list = []
+
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+            fp = self.smiles_to_fingerprint(smiles)
+            if fp is not None:
+                if task_name:
+                    label = row[task_name]
+                else:
+                    label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
+                label_list.append(label)
+
+        return label_list
