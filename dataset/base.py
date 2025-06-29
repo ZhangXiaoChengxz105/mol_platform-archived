@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from rdkit import Chem
+import yaml
 
 class BaseDataset:
     def __init__(self, datasetName: str, datasetPath: str):
@@ -14,3 +16,29 @@ class BaseDataset:
     def preprocessData(self):
         raise NotImplementedError("preprocessData()")
 
+    def provideSmilesAndLabel(self, model_name):
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        if model_name not in config["datasets"]:
+            raise ValueError(f"No such config for model: {model_name}")
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        smiles_list = []
+        label_list = []
+
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+            label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
+
+            if Chem.MolFromSmiles(smiles) is not None:
+                smiles_list.append(smiles)
+                label_list.append(label)
+
+        return {
+            "smiles": smiles_list,
+            "label": label_list
+        }
