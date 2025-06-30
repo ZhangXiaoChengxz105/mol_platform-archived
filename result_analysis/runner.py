@@ -10,7 +10,8 @@ runner_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(runner_dir, '..'))
 provider_dir = os.path.join(project_root, 'dataset')
 sys.path.append(provider_dir)
-
+import numpy as np
+import torch
 from squence import sequenceDataset
 from base import BaseDataset
 
@@ -20,8 +21,21 @@ class model_runner_interface(ABC):
     def run(self):
         pass
 
+def make_json_safe(obj):
+    if isinstance(obj, dict):
+        return {k: make_json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_safe(v) for v in obj]
+    elif isinstance(obj, torch.Tensor):
+        return obj.item()
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
 
-class GNNRunner(model_runner_interface):
+class Runner(model_runner_interface):
     def __init__(self, model, name, target_list, smiles_list, output=None):
         self.model = model
         self.name = name
@@ -208,7 +222,7 @@ if __name__ == '__main__':
         smiles_list = [s.strip() for s in args.smiles_list.split(',')]
     
     finalres = []
-    runner = GNNRunner(args.model, args.name, target_list, smiles_list, args.output)
+    runner = Runner(args.model, args.name, target_list, smiles_list, args.output)
     result = runner.run()
     for i in range(len(result)):
         subresult = result[i]
@@ -225,7 +239,8 @@ if __name__ == '__main__':
 
         with open(output_file, "w", encoding="utf-8") as f:
             for item in finalres:
-                json.dump(item, f, ensure_ascii=False)
+                safe_item = make_json_safe(item)  # 🔁 转换为安全格式
+                json.dump(safe_item, f, ensure_ascii=False)
                 f.write('\n')
 
         print(f"✅ Results written to {output_file} in JSONL format")
