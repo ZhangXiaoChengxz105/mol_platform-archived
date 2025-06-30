@@ -1,0 +1,7 @@
+model: fp
+name: FreeSolv
+eval: true 
+target_list: expt
+smiles_list: all
+output: results.json
+plotpath: plots
