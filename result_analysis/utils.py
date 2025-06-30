@@ -37,17 +37,25 @@ def plot_classification_scatter(true_labels, pred_probs):# 将标签转换为数
 def plot_jsonl_by_task(jsonl_path, save_dir="plots"):
     os.makedirs(save_dir, exist_ok=True)
 
-    # 用来按 task 类型收集数据
     regression_data = defaultdict(list)
     classification_data = defaultdict(list)
 
     with open(jsonl_path, "r", encoding="utf-8") as f:
         for line in f:
-            item = json.loads(line)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Skipping bad line: {line[:50]}... ({e})")
+                continue
+
             task_type = item.get("task", "").lower()
+            model = item.get("model", "unknown")
             dataset = item.get("name", "unknown")
             target = item.get("target", "unknown")
-            key = f"{dataset}::{target}"
+            key = f"{model}::{dataset}::{target}"
 
             pred = item.get("prediction")
             truth = item.get("truth")
