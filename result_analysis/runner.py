@@ -322,8 +322,7 @@ if finalres:
 
     # ✅ 执行绘图（如果开启 eval 模式）
     if args.eval:
-        for path in written_files:
-            plot_csv_by_task(path, save_dir=args.plotpath)
+        plot_csv_by_task(output_dir, save_dir=args.plotpath)
 
 else:
     print("⚠️ No results to write.")
