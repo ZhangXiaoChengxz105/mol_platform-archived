@@ -1,93 +1,77 @@
-import json
-import numpy as np
+from pathlib import Path
+import os
+import csv
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 from collections import defaultdict
-import os
-def plot_regression_scatter(true_values, pred_values):
-    plt.figure(figsize=(8,6))
-    sns.scatterplot(x=true_values, y=pred_values, alpha=0.6, 
-        edgecolor='w', linewidth=0.5)
-    plt.plot([min(true_values), max(true_values)], [min(true_values), max(true_values)], 'r--', lw=2)
-    plt.xlabel('True Values', fontsize=12)
-    plt.ylabel('Predictions', fontsize=12)
-    plt.title('Regression Prediction Accuracy', fontsize=14)
-    plt.grid(alpha=0.3)
-    plt.show()
-def plot_classification_scatter(true_labels, pred_probs):# 将标签转换为数值
-    y_numeric = np.where(true_labels == true_labels[0], 0, 1)  # 假设⼆分类
-    pred_labels = np.where(pred_probs >= 0.5, 1, 0)
-    correct = y_numeric == pred_labels
-    # 添加⽔平抖动
-    jitter = np.random.normal(0, 0.05, size=len(y_numeric))
-    plt.figure(figsize=(10,6))
-    scatter = plt.scatter(x=y_numeric + jitter, 
-        y=pred_probs, 
-        c=correct,
-        cmap='coolwarm',
-        alpha=0.7,
-        edgecolors='w')
-    plt.xticks([0,1], [f'Class {true_labels[0]}', f'Class {true_labels[-1]}'])
-    plt.ylabel('Prediction Confidence', fontsize=12)
-    plt.title('Classification Confidence Distribution', fontsize=14)
-    plt.colorbar(scatter, label='Correct Prediction')
-    plt.grid(axis='y', alpha=0.3)
-    plt.show()
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-def plot_jsonl_by_task(jsonl_path, save_dir="plots"):
+def plot_csv_by_task(folder_path, save_dir="plots"):
     os.makedirs(save_dir, exist_ok=True)
 
     regression_data = defaultdict(list)
     classification_data = defaultdict(list)
+    regression_group_data = defaultdict(list)
+    classification_group_data = defaultdict(list)
+    regression_model_data = defaultdict(list)
+    classification_model_data = defaultdict(list)
 
-    with open(jsonl_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                item = json.loads(line)
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Skipping bad line: {line[:50]}... ({e})")
-                continue
+    folder_path = Path(folder_path)
+    for csv_file in folder_path.glob("*.csv"):
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    task_type = row.get("task", "").lower()
+                    model = row.get("model", "unknown")
+                    dataset = row.get("name", "unknown")
+                    target = row.get("target", "unknown")
+                    key = f"{model}::{dataset}::{target}"
+                    group_key = f"{model}::{dataset}"
+                    model_key = model
 
-            task_type = item.get("task", "").lower()
-            model = item.get("model", "unknown")
-            dataset = item.get("name", "unknown")
-            target = item.get("target", "unknown")
-            key = f"{model}::{dataset}::{target}"
+                    pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                    truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
 
-            pred = item.get("prediction")
-            truth = item.get("truth")
+                    if pred is None or truth is None:
+                        continue
 
-            if pred is None or truth is None:
-                continue
+                    if task_type == "regression":
+                        regression_data[key].append((truth, pred))
+                        regression_group_data[group_key].append((truth, pred))
+                        regression_model_data[model_key].append((truth, pred))
+                    elif "classification" in task_type:
+                        classification_data[key].append((truth, pred))
+                        classification_group_data[group_key].append((truth, pred))
+                        classification_model_data[model_key].append((truth, pred))
 
-            if task_type == "regression":
-                regression_data[key].append((truth, pred))
-            elif "classification" in task_type:
-                classification_data[key].append((truth, pred))
+                except Exception as e:
+                    print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
+                    continue
 
-    # 绘图：回归任务
-    for key, values in regression_data.items():
+    def plot_regression(values, save_path, title_suffix=""):
         truths, preds = zip(*values)
-        plt.figure(figsize=(8,6))
+        mse = mean_squared_error(truths, preds)
+        mae = mean_absolute_error(truths, preds)
+        r2 = r2_score(truths, preds)
+        count = len(truths)
+
+        plt.figure(figsize=(8, 6))
         sns.scatterplot(x=truths, y=preds, alpha=0.6, edgecolor='w', linewidth=0.5)
         min_val = min(min(truths), min(preds))
         max_val = max(max(truths), max(preds))
         plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2)
         plt.xlabel("True Values", fontsize=12)
         plt.ylabel("Predictions", fontsize=12)
-        plt.title(f"Regression Prediction: {key}", fontsize=14)
+        plt.title(f"{title_suffix} MSE: {mse:.3f}, MAE: {mae:.3f}, R²: {r2:.3f}, N={count}", fontsize=10)
         plt.grid(alpha=0.3)
         plt.tight_layout()
-        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_regression.png")
         plt.savefig(save_path, dpi=300)
         plt.close()
         print(f"✅ Saved regression plot: {save_path}")
 
-    # 绘图：分类任务
-    for key, values in classification_data.items():
+    def plot_classification(values, save_path, title_suffix=""):
         truths, preds = zip(*values)
         y_numeric = np.array(truths)
         pred_probs = np.array(preds)
@@ -95,22 +79,68 @@ def plot_jsonl_by_task(jsonl_path, save_dir="plots"):
         correct = y_numeric == pred_labels
         jitter = np.random.normal(0, 0.05, size=len(y_numeric))
 
-        plt.figure(figsize=(10,6))
-        scatter = plt.scatter(
-            x=y_numeric + jitter,
-            y=pred_probs,
-            c=correct,
-            cmap='coolwarm',
-            alpha=0.7,
-            edgecolors='w'
-        )
-        plt.xticks([0,1], ['Class 0', 'Class 1'])
+        class_0_mask = y_numeric == 0
+        class_1_mask = y_numeric == 1
+        acc_0 = np.mean(correct[class_0_mask]) if np.any(class_0_mask) else 0.0
+        acc_1 = np.mean(correct[class_1_mask]) if np.any(class_1_mask) else 0.0
+        n_0 = np.sum(class_0_mask)
+        n_1 = np.sum(class_1_mask)
+
+        plt.figure(figsize=(10, 6))
+        unique_classes = np.unique(y_numeric)
+        if len(unique_classes) == 1:
+            plt.scatter(
+                x=y_numeric + jitter,
+                y=pred_probs,
+                c='green' if unique_classes[0] == 1 else 'blue',
+                alpha=0.7,
+                edgecolors='w'
+            )
+        else:
+            plt.scatter(
+                x=y_numeric + jitter,
+                y=pred_probs,
+                c=correct,
+                cmap='coolwarm',
+                alpha=0.7,
+                edgecolors='w'
+            )
+
+        xticks_labels = []
+        if n_0 > 0:
+            xticks_labels.append(f'Class 0 (Acc: {acc_0:.2f}, N={n_0})')
+        if n_1 > 0:
+            xticks_labels.append(f'Class 1 (Acc: {acc_1:.2f}, N={n_1})')
+        plt.xticks([0, 1][:len(xticks_labels)], xticks_labels)
         plt.ylabel("Prediction Confidence", fontsize=12)
-        plt.title(f"Classification Confidence: {key}", fontsize=14)
-        plt.colorbar(scatter, label="Correct Prediction")
+        plt.title(f"{title_suffix} Classification Confidence", fontsize=12)
+        plt.colorbar(label="Correct Prediction")
         plt.grid(axis='y', alpha=0.3)
         plt.tight_layout()
-        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_classification.png")
         plt.savefig(save_path, dpi=300)
         plt.close()
         print(f"✅ Saved classification plot: {save_path}")
+
+    for key, values in regression_data.items():
+        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_regression.png")
+        plot_regression(values, save_path, title_suffix=key)
+
+    for key, values in classification_data.items():
+        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_classification.png")
+        plot_classification(values, save_path, title_suffix=key)
+
+    for key, values in regression_group_data.items():
+        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_regression_all_targets.png")
+        plot_regression(values, save_path, title_suffix=key)
+
+    for key, values in classification_group_data.items():
+        save_path = os.path.join(save_dir, f"{key.replace('::','_')}_classification_all_targets.png")
+        plot_classification(values, save_path, title_suffix=key)
+
+    for key, values in regression_model_data.items():
+        save_path = os.path.join(save_dir, f"{key}_regression_all_datasets.png")
+        plot_regression(values, save_path, title_suffix=key)
+
+    for key, values in classification_model_data.items():
+        save_path = os.path.join(save_dir, f"{key}_classification_all_datasets.png")
+        plot_classification(values, save_path, title_suffix=key)

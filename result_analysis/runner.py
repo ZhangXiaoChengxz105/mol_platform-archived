@@ -5,15 +5,22 @@ import argparse
 import json
 from abc import ABC, abstractmethod
 import yaml
-from utils import plot_jsonl_by_task
+from utils import plot_csv_by_task
 runner_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(runner_dir, '..'))
 provider_dir = os.path.join(project_root, 'dataset')
+model_dir = os.path.join(project_root, 'models')
 sys.path.append(provider_dir)
+sys.path.append(model_dir)
+from check_utils import validate_datasets_measure_names
 import numpy as np
 import torch
 from squence import sequenceDataset
 from base import BaseDataset
+import re
+import random
+from collections import defaultdict
+import csv
 
 
 class model_runner_interface(ABC):
@@ -82,7 +89,6 @@ class Runner(model_runner_interface):
         # else:
         #     print("\nPrediction Results:")
         #     print(json.dumps(results, indent=4))
-        print(results)
         return results
 
 
@@ -196,6 +202,31 @@ def get_all_targets_and_smiles(name,data):
     
     return smiles_col, label_cols
     
+def get_all_datasets(model: str):
+    # 路径设置
+    config_path = os.path.join(project_root,"dataset", "smile_config.yaml")
+    model_dir = os.path.join(project_root,"models", f"{model}_finetune")
+
+    # 读取 config 中的所有数据集名
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    all_dataset_names = config.get("datasets", {}).keys()
+
+    # 获取模型目录下所有 .pt 文件名（不带后缀）
+    if not os.path.exists(model_dir):
+        raise FileNotFoundError(f"Model path '{model_dir}' does not exist.")
+    
+    pt_files = [f for f in os.listdir(model_dir) if f.endswith(".pt")]
+    pt_prefixes = [os.path.splitext(f)[0].lower() for f in pt_files]
+
+    # 找到交集：只要 pt 文件前缀包含 dataset 名，就认为匹配
+    matched_names = []
+    for dataset_name in all_dataset_names:
+        dataset_lc = dataset_name.lower()
+        if any(pt_prefix.startswith(dataset_lc) for pt_prefix in pt_prefixes):
+            matched_names.append(dataset_name)
+
+    return matched_names
         
     
 
@@ -204,50 +235,97 @@ if __name__ == '__main__':
     args = parse_args()
 
     # 参数拆分处理
-    ds = sequenceDataset(args.name, f"../dataset/data/{args.name}.csv")
-    ds.loadData()
-    data = ds.provideSmilesAndLabel(args.name)
-    tmpsm, tmptg = get_all_targets_and_smiles(args.name, data)
-
-    # target_list
-    if args.target_list.strip().lower() == "all":
-        target_list = tmptg
+    if args.name.lower() == 'all':
+        names_list  = get_all_datasets(args.model)
     else:
-        target_list = [t.strip() for t in args.target_list.split(',')]
-
-    # smiles_list
-    if args.smiles_list.strip().lower() == "all":
-        smiles_list = tmpsm
-    else:
-        smiles_list = [s.strip() for s in args.smiles_list.split(',')]
-    
+        names_list = [args.name]
     finalres = []
-    runner = Runner(args.model, args.name, target_list, smiles_list, args.output)
-    result = runner.run()
-    for i in range(len(result)):
-        subresult = result[i]
-        print(subresult)
-        if "error" not in subresult:
-            subresult = lookup(subresult,data)
-            print(subresult)
-            finalres.append(subresult)
+    for name in names_list:    
+        ds = sequenceDataset(args.name, f"../dataset/data/{name}.csv")
+        ds.loadData()
+        data = ds.provideSmilesAndLabel(name)
+        tmpsm, tmptg = get_all_targets_and_smiles(name, data)
+
+        # target_list
+        if args.target_list.strip().lower() == "all":
+            target_list = tmptg
         else:
-            finalres.append(subresult)
+            target_list = [t.strip() for t in args.target_list.split(',')]
+        
+        valid_targets = []
+        for target in target_list:
+            try:
+                validate_datasets_measure_names(name, target)
+                valid_targets.append(target)
+            except ValueError as e:
+                print(f"⚠️ {e} —— 已移除目标 '{target}'")
+                target_list = valid_targets
+
+        if not target_list:
+            print(f"❌ 数据集 {name} 无合法 target，跳过该项")
+            continue
+
+        smiles_arg = args.smiles_list.strip().lower()
+
+        # smiles_list
+        if smiles_arg == "all":
+            smiles_list = tmpsm
+        elif re.match(r"random\d+", smiles_arg):
+            count = int(re.findall(r"\d+", smiles_arg)[0])
+            available = len(tmpsm)
+            actual_count = min(count, available)
+            if actual_count < count:
+                print(f"⚠️ Requested random{count}, but only {available} SMILES available. Using {actual_count}.")
+            smiles_list = random.sample(tmpsm, actual_count)
+        else:
+            smiles_list = [s.strip() for s in args.smiles_list.split(',')]
+        runner = Runner(args.model, name, target_list, smiles_list, args.output)
+        result = runner.run()
+        for i in range(len(result)):
+            subresult = result[i]
+            if "error" not in subresult:
+                subresult = lookup(subresult,data)
+                finalres.append(subresult)
+            else:
+                finalres.append(subresult)
             
-    if finalres:
-        output_file = args.output if args.output else "results.jsonl"
+if finalres:
+    # ⏬ 按 model_name_target 分组
+    grouped_results = defaultdict(list)
+    for i, item in enumerate(finalres):
+        if "name" not in item or item["name"] is None:
+            print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
+    for item in finalres:
+        key = f"{item['model']}_{item['name']}_{item['target']}"
+        grouped_results[key].append(item)
 
-        with open(output_file, "w", encoding="utf-8") as f:
-            for item in finalres:
-                safe_item = make_json_safe(item)  # 🔁 转换为安全格式
-                json.dump(safe_item, f, ensure_ascii=False)
-                f.write('\n')
+    output_dir = args.output if args.output else "output"
+    os.makedirs(output_dir, exist_ok=True)
 
-        print(f"✅ Results written to {output_file} in JSONL format")
-    else:
-        print("⚠️ No results to write.")
+    written_files = []
+
+    for key, items in grouped_results.items():
+        output_path = os.path.join(output_dir, f"{key}.csv")
+
+        # 写入 CSV 文件
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            writer = None
+            for item in items:
+                safe_item = make_json_safe(item)
+                if writer is None:
+                    writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
+                    writer.writeheader()
+                writer.writerow(safe_item)
+
+        print(f"✅ Results written to {output_path}")
+        written_files.append(output_path)
+
+    # ✅ 执行绘图（如果开启 eval 模式）
     if args.eval:
-        plot_jsonl_by_task(output_file, save_dir=args.plotpath)
+        plot_csv_by_task(output_dir, save_dir=args.plotpath)
+
+else:
+    print("⚠️ No results to write.")
         
         # result = result[0]
         # print(result)
