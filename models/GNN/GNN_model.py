@@ -30,6 +30,8 @@ class GNN(base_model):
         # 初始化模型结构
         self.model = GINet(task=self.task)
         self.model.eval()
+        self.mean = None
+        self.std = None
     def load_weights(self, path=None):
         """实现微调模型加载逻辑"""
         if path is None:
