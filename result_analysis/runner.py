@@ -204,26 +204,27 @@ def get_all_targets_and_smiles(name,data):
     
 def get_all_datasets(model: str):
     # 路径设置
-    config_path = os.path.join(project_root,"dataset", "smile_config.yaml")
-    model_dir = os.path.join(project_root,"models", f"{model}_finetune")
+    config_path = os.path.join(project_root, "dataset", "smile_config.yaml")
+    model_dir = os.path.join(project_root, "models", f"{model}_finetune")
 
     # 读取 config 中的所有数据集名
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     all_dataset_names = config.get("datasets", {}).keys()
 
-    # 获取模型目录下所有 .pt 文件名（不带后缀）
+    # 检查模型目录是否存在
     if not os.path.exists(model_dir):
         raise FileNotFoundError(f"Model path '{model_dir}' does not exist.")
     
-    pt_files = [f for f in os.listdir(model_dir) if f.endswith(".pt")]
-    pt_prefixes = [os.path.splitext(f)[0].lower() for f in pt_files]
+    # 获取模型目录下所有文件名（不含扩展名，统一小写）
+    all_files = os.listdir(model_dir)
+    file_prefixes = [os.path.splitext(f)[0].lower() for f in all_files if os.path.isfile(os.path.join(model_dir, f))]
 
-    # 找到交集：只要 pt 文件前缀包含 dataset 名，就认为匹配
+    # 匹配数据集名
     matched_names = []
     for dataset_name in all_dataset_names:
         dataset_lc = dataset_name.lower()
-        if any(pt_prefix.startswith(dataset_lc) for pt_prefix in pt_prefixes):
+        if any(prefix.startswith(dataset_lc) for prefix in file_prefixes):
             matched_names.append(dataset_name)
 
     return matched_names
