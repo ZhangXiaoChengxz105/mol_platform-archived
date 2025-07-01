@@ -4,7 +4,10 @@ __pycache__/
 *$py.class
 *.so
 .Python
-
+# models data files
+*.csv
+*.png
+*.json
 # models parameter files
 *.pth
 *.ckpt

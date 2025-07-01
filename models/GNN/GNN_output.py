@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from GNN_data import smiles_to_graph
 from GNN_model import GNN
-from check_utils import get_datasets_measure_names, validate_datasets_measure_names
+from check_utils import validate_datasets_measure_names
 
 def gnn_predict(name, target, smiles_list):
     """
@@ -28,24 +28,25 @@ def gnn_predict(name, target, smiles_list):
         print(".pth文件已加载，模型初始化成功")
     else:
         raise ValueError(f"模型文件不存在: {path}")
+    
+    data_list = smiles_to_graph(smiles_list)
+    pred_list = model.predict(data_list)
     # 预测
     results = []
-    for i in range(len(smiles_list)):
-        smiles = smiles_list[i]
-        pred_logits = model.predict(smiles_to_graph(smiles))
+    for i, smiles in enumerate(smiles_list):
+
+        pred_value = pred_list[i]
+        
         result = {
             "smiles": smiles,
             "task": model.task,
-            "prediction": None,
-            "label": None
+            "prediction": pred_value,
+            "label": None,
         }
+        
+        # 分类任务添加标签
         if model.task == "classification":
-            # 分类任务处理
-            pred_probs = torch.softmax(pred_logits, dim=1)
-            result["prediction"] = pred_probs[0][1].item()  # 正类概率
-            result["label"] = 1 if result["prediction"] > 0.5 else 0
-        elif model.task == "regression":
-            # 回归任务处理
-            result["prediction"] = pred_logits.item()  # 直接输出预测值
+            result["label"] = 1 if pred_value > 0.5 else 0
+        
         results.append(result)
     return results

@@ -22,8 +22,9 @@ def test_prediction(name, target, smiles_list):
 
 if __name__ == "__main__":
     # test
-    smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
-    smile2 = "CN(C)CCCN1c2ccccc2Sc3ccc(cc13)C(F)(F)F"
+    smile1 = "Cn1c(CN2CCN(CC2)c3ccc(Cl)cc3)nc4ccccc14"
+    smile2 = "CN(C)C(=O)c1ccc(cc1)OC"
+    smile3 = "[H]C([H])([H])C([H])([H])[H]"
     smiles_list = [smile1,smile2]
     # 分类任务测试
     name = "BBBP"
@@ -32,7 +33,18 @@ if __name__ == "__main__":
     test_prediction(name, target, smiles_list)
 
     # 回归任务测试
-    name = "FreeSolv"
-    target = "expt"
+    # name = "FreeSolv"
+    # target = "expt"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2]) # true value: -11.01
+
+    
+    # name = "Lipo"
+    # target = "exp"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, smiles_list) # true value: 3.54
+
+    name = "qm7"
+    target = "u0_atom"
     print("\nRegression task test:")
-    test_prediction(name, target, smiles_list)
+    test_prediction(name, target, [smile2, smile3]) # true value: -712.42

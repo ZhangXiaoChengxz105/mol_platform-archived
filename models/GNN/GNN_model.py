@@ -37,21 +37,34 @@ class GNN(base_model):
                 print("模型未初始化或添加路径，无法加载")
             else: 
                 path = self.path
-        self.model.load_state_dict(torch.load(path, map_location='cpu'))
-    
+        state_dict = torch.load(path, map_location='cpu')
+        try:
+            self.mean = state_dict['mean']
+            self.std = state_dict['std']
+            print("denorm parameters loaded")
+        except:
+            print("No need for denorm")
+        self.model.load_my_state_dict(state_dict)
     def predict(self, data):
         self.model.eval()
         if not hasattr(data, 'batch') or data.batch is None:
-            batch_data = Batch.from_data_list([data])
+            batch_data = Batch.from_data_list(data)
         with torch.no_grad():
             _, pred = self.model(batch_data)
+            if self.task=='classification':
+                pred = F.softmax(pred, dim=-1)
+                pred = pred[:,1]
+            else:
+                if self.mean and self.std:
+                    pred = pred*self.std + self.mean
+                pred = pred[:,0]
         return pred
 
-    num_atom_type = 119 # including the extra mask tokens
-    num_chirality_tag = 3
+num_atom_type = 119 # including the extra mask tokens
+num_chirality_tag = 3
 
-    num_bond_type = 5 # including aromatic and self-loop edge
-    num_bond_direction = 3
+num_bond_type = 5 # including aromatic and self-loop edge
+num_bond_direction = 3 
 
 
 class GINEConv(MessagePassing):
@@ -62,8 +75,8 @@ class GINEConv(MessagePassing):
             nn.ReLU(), 
             nn.Linear(2*emb_dim, emb_dim)
         )
-        self.edge_embedding1 = nn.Embedding(5, emb_dim)
-        self.edge_embedding2 = nn.Embedding(3, emb_dim)
+        self.edge_embedding1 = nn.Embedding(num_bond_type, emb_dim)
+        self.edge_embedding2 = nn.Embedding(num_bond_direction, emb_dim)
 
         nn.init.xavier_uniform_(self.edge_embedding1.weight.data)
         nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
@@ -89,6 +102,7 @@ class GINEConv(MessagePassing):
     def update(self, aggr_out):
         return self.mlp(aggr_out)
 
+
 class GINet(nn.Module):
     """
     Args:
@@ -99,20 +113,21 @@ class GINet(nn.Module):
     Output:
         node representations
     """
-    
     def __init__(self, 
         task='classification', num_layer=5, emb_dim=300, feat_dim=512, 
-        drop_ratio=0, pool='mean', pred_n_layer=2, pred_act='softplus'):
-
+        drop_ratio=0, pool='mean', pred_n_layer=2, pred_act='softplus'
+    ):
         super(GINet, self).__init__()
+        self.mean = None
+        self.std = None
         self.num_layer = num_layer
         self.emb_dim = emb_dim
         self.feat_dim = feat_dim
         self.drop_ratio = drop_ratio
         self.task = task
 
-        self.x_embedding1 = nn.Embedding(119, emb_dim)
-        self.x_embedding2 = nn.Embedding(3, emb_dim)
+        self.x_embedding1 = nn.Embedding(num_atom_type, emb_dim)
+        self.x_embedding2 = nn.Embedding(num_chirality_tag, emb_dim)
         nn.init.xavier_uniform_(self.x_embedding1.weight.data)
         nn.init.xavier_uniform_(self.x_embedding2.weight.data)
 
@@ -198,7 +213,6 @@ class GINet(nn.Module):
                 param = param.data
             own_state[name].copy_(param)
 
-
 '''
 # 使用示例
 bbbp_model = GraphModel("BBBP", "models/")  # 自动设置task='classification'
@@ -216,3 +230,27 @@ data = Data(
     edge_attr=edge_attr,  # 边特征，形状 [num_edges, num_edge_features]
     y=label  # 可选，标签
 )'''
+
+
+class Normalizer(object):
+    """Normalize a Tensor and restore it later. """
+
+    def __init__(self, tensor=None):
+        """tensor is taken as a sample to calculate the mean and std"""
+        if tensor:
+            self.mean = torch.mean(tensor)
+            self.std = torch.std(tensor)
+
+    def norm(self, tensor):
+        return (tensor - self.mean) / self.std
+
+    def denorm(self, normed_tensor):
+        return normed_tensor * self.std + self.mean
+
+    def state_dict(self):
+        return {'mean': self.mean,
+                'std': self.std}
+
+    def load_state_dict(self, state_dict):
+        self.mean = state_dict['mean']
+        self.std = state_dict['std']

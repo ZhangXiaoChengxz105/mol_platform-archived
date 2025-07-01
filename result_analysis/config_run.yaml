@@ -1,7 +1,7 @@
-model: fp
-name: FreeSolv
+model: gnn
+name: qm7
 eval: true 
-target_list: expt
+target_list: all
 smiles_list: all
 output: results.json
 plotpath: plots

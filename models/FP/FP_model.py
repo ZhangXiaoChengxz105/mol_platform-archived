@@ -56,7 +56,6 @@ class FPModel(base_model):
         self.model.eval()
         with torch.no_grad():
             predictions = self.model(fp_tensor)
-            
             # 分类任务应用sigmoid
             if self.task == "classification":
                 predictions = self.sigmoid(predictions)
