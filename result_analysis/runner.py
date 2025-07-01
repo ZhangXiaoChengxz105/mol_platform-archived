@@ -9,7 +9,10 @@ from utils import plot_csv_by_task
 runner_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(runner_dir, '..'))
 provider_dir = os.path.join(project_root, 'dataset')
+model_dir = os.path.join(project_root, 'models')
 sys.path.append(provider_dir)
+sys.path.append(model_dir)
+from check_utils import validate_datasets_measure_names
 import numpy as np
 import torch
 from squence import sequenceDataset
@@ -236,6 +239,7 @@ if __name__ == '__main__':
         names_list  = get_all_datasets(args.model)
     else:
         names_list = [args.name]
+    finalres = []
     for name in names_list:    
         ds = sequenceDataset(args.name, f"../dataset/data/{name}.csv")
         ds.loadData()
@@ -247,6 +251,19 @@ if __name__ == '__main__':
             target_list = tmptg
         else:
             target_list = [t.strip() for t in args.target_list.split(',')]
+        
+        valid_targets = []
+        for target in target_list:
+            try:
+                validate_datasets_measure_names(name, target)
+                valid_targets.append(target)
+            except ValueError as e:
+                print(f"⚠️ {e} —— 已移除目标 '{target}'")
+                target_list = valid_targets
+
+        if not target_list:
+            print(f"❌ 数据集 {name} 无合法 target，跳过该项")
+            continue
 
         smiles_arg = args.smiles_list.strip().lower()
 
@@ -262,8 +279,6 @@ if __name__ == '__main__':
             smiles_list = random.sample(tmpsm, actual_count)
         else:
             smiles_list = [s.strip() for s in args.smiles_list.split(',')]
-        
-        finalres = []
         runner = Runner(args.model, name, target_list, smiles_list, args.output)
         result = runner.run()
         for i in range(len(result)):
@@ -277,6 +292,9 @@ if __name__ == '__main__':
 if finalres:
     # ⏬ 按 model_name_target 分组
     grouped_results = defaultdict(list)
+    for i, item in enumerate(finalres):
+        if "name" not in item or item["name"] is None:
+            print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
     for item in finalres:
         key = f"{item['model']}_{item['name']}_{item['target']}"
         grouped_results[key].append(item)
