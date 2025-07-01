@@ -22,8 +22,8 @@ def test_fp_prediction(name, target, smiles_list):
 if __name__ == "__main__":
     # 测试数据
     smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
-    smile2 = "CN(C)CCCN1c2ccccc2Sc3ccc(cc13)C(F)(F)F"
-    smiles_list = [smile1,smile2]
+    smile2 = "CN(C)C(=O)c1ccc(cc1)OC"
+    smiles_list = [smile2]
     
     # 分类任务测试
     # name = "BBBP"

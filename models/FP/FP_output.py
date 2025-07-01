@@ -34,13 +34,7 @@ def fp_predict(name, target, smiles_list):
     model.load_weights()
     
     # 转换SMILES为指纹
-    fps = []
-    for smiles in smiles_list:
-        fp = smiles_to_fingerprint(smiles)
-        fps.append(fp)
-    
-    # 转换为张量
-    fp_tensor = torch.tensor(fps, dtype=torch.float32)
+    fp_tensor = smiles_to_fingerprint(smiles_list)
     
     # 预测
     predictions = model.predict(fp_tensor)
