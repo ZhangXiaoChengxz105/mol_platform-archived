@@ -53,13 +53,12 @@ class GNN(base_model):
             batch_data = Batch.from_data_list(data)
         with torch.no_grad():
             _, pred = self.model(batch_data)
+            print(pred)
             if self.task=='classification':
-                pred = F.softmax(pred, dim=-1)
-                pred = pred[:,1]
+                pred = F.sigmoid(pred)
             else:
                 if self.mean and self.std:
                     pred = pred*self.std + self.mean
-                pred = pred[:,0]
         return pred
 
 num_atom_type = 119 # including the extra mask tokens

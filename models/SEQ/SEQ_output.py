@@ -33,34 +33,26 @@ def seq_predict(name, target, smiles_list):
 
     # 3. 预测结果
     # 数据转换
+    
+    token_data = smiles_to_tokens(smiles_list)
+    predictions = model.predict(token_data)
     results = []
-    for i in range(len(smiles_list)):
-        smiles = smiles_list[i]
-        token_data = smiles_to_tokens(smiles)        
+    for i, smiles in enumerate(smiles_list):
+        measure_names = get_datasets_measure_names(name)
+        index = measure_names.index(target)
+
+        pred_value = predictions[i][index]
+        
         result = {
             "smiles": smiles,
             "task": model.task,
-            "prediction": None,
+            "prediction": pred_value,
             "label": None,
         }
-        if name not in ["Tox21", "ClinTox","MUV","SIDER"]:
-            pred = model.predict(token_data)
-        else:
-            pred_list = model.predict(token_data)
-            measure_names = get_datasets_measure_names(name)
-            i = measure_names.index(target)
-            pred = pred_list[0][i]
-
-
-        if model.task == "regression":
-            # 回归任务或多属性分类任务处理
-            result["prediction"] = pred.item()  # 直接输出预测值
-        else:
-            pred_probs = torch.softmax(pred, dim=1)[0][1] if model.task == "classification" else pred
-            result["prediction"] = pred_probs.item()  # 正类概率
-            result["label"] = 1 if result["prediction"] > 0.5 else 0
-
+        
+        # 分类任务添加标签
+        if model.task == "classification":
+            result["label"] = 1 if pred_value > 0.5 else 0
         results.append(result)
     
-    # 4. 输出结果 (p-np概率值)
     return results

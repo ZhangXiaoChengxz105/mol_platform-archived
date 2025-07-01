@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from GNN_data import smiles_to_graph
 from GNN_model import GNN
-from check_utils import validate_datasets_measure_names
+from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
 def gnn_predict(name, target, smiles_list):
     """
@@ -29,13 +29,15 @@ def gnn_predict(name, target, smiles_list):
     else:
         raise ValueError(f"模型文件不存在: {path}")
     
-    data_list = smiles_to_graph(smiles_list)
-    pred_list = model.predict(data_list)
+    graph_data = smiles_to_graph(smiles_list)
+    predictions = model.predict(graph_data)
     # 预测
     results = []
     for i, smiles in enumerate(smiles_list):
+        measure_names = get_datasets_measure_names(name)
+        index = measure_names.index(target)
 
-        pred_value = pred_list[i]
+        pred_value = predictions[i][index]
         
         result = {
             "smiles": smiles,
@@ -47,6 +49,6 @@ def gnn_predict(name, target, smiles_list):
         # 分类任务添加标签
         if model.task == "classification":
             result["label"] = 1 if pred_value > 0.5 else 0
-        
         results.append(result)
+    
     return results

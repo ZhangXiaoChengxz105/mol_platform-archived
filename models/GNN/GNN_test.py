@@ -27,10 +27,10 @@ if __name__ == "__main__":
     smile3 = "[H]C([H])([H])C([H])([H])[H]"
     smiles_list = [smile1,smile2]
     # 分类任务测试
-    name = "BBBP"
-    target = "p_np"
-    print("\nClassification task test:")
-    test_prediction(name, target, smiles_list)
+    # name = "BBBP"
+    # target = "p_np"
+    # print("\nClassification task test:")
+    # test_prediction(name, target, smiles_list)
 
     # 回归任务测试
     # name = "FreeSolv"
