@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
 import os
+import csv
 def plot_regression_scatter(true_values, pred_values):
     plt.figure(figsize=(8,6))
     sns.scatterplot(x=true_values, y=pred_values, alpha=0.6, 
@@ -34,39 +35,36 @@ def plot_classification_scatter(true_labels, pred_probs):# 将标签转换为数
     plt.grid(axis='y', alpha=0.3)
     plt.show()
 
-def plot_jsonl_by_task(jsonl_path, save_dir="plots"):
+def plot_csv_by_task(csv_path, save_dir="plots"):
     os.makedirs(save_dir, exist_ok=True)
 
     regression_data = defaultdict(list)
     classification_data = defaultdict(list)
 
-    with open(jsonl_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
             try:
-                item = json.loads(line)
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Skipping bad line: {line[:50]}... ({e})")
+                task_type = row.get("task", "").lower()
+                model = row.get("model", "unknown")
+                dataset = row.get("name", "unknown")
+                target = row.get("target", "unknown")
+                key = f"{model}::{dataset}::{target}"
+
+                pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
+
+                if pred is None or truth is None:
+                    continue
+
+                if task_type == "regression":
+                    regression_data[key].append((truth, pred))
+                elif "classification" in task_type:
+                    classification_data[key].append((truth, pred))
+
+            except Exception as e:
+                print(f"⚠️ Skipping bad row: {row} ({e})")
                 continue
-
-            task_type = item.get("task", "").lower()
-            model = item.get("model", "unknown")
-            dataset = item.get("name", "unknown")
-            target = item.get("target", "unknown")
-            key = f"{model}::{dataset}::{target}"
-
-            pred = item.get("prediction")
-            truth = item.get("truth")
-
-            if pred is None or truth is None:
-                continue
-
-            if task_type == "regression":
-                regression_data[key].append((truth, pred))
-            elif "classification" in task_type:
-                classification_data[key].append((truth, pred))
 
     # 绘图：回归任务
     for key, values in regression_data.items():

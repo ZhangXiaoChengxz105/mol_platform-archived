@@ -5,7 +5,7 @@ import argparse
 import json
 from abc import ABC, abstractmethod
 import yaml
-from utils import plot_jsonl_by_task
+from utils import plot_csv_by_task
 runner_dir = os.path.dirname(__file__)
 project_root = os.path.abspath(os.path.join(runner_dir, '..'))
 provider_dir = os.path.join(project_root, 'dataset')
@@ -17,6 +17,7 @@ from base import BaseDataset
 import re
 import random
 from collections import defaultdict
+import csv
 
 
 class model_runner_interface(ABC):
@@ -273,34 +274,41 @@ if __name__ == '__main__':
             else:
                 finalres.append(subresult)
             
-    if finalres:
-        # ⏬ 按 model_name_target 分组
-        grouped_results = defaultdict(list)
-        for item in finalres:
-            key = f"{item['model']}_{item['name']}_{item['target']}"
-            grouped_results[key].append(item)
+if finalres:
+    # ⏬ 按 model_name_target 分组
+    grouped_results = defaultdict(list)
+    for item in finalres:
+        key = f"{item['model']}_{item['name']}_{item['target']}"
+        grouped_results[key].append(item)
 
-        output_dir = args.output if args.output else "output"
-        os.makedirs(output_dir, exist_ok=True)
+    output_dir = args.output if args.output else "output"
+    os.makedirs(output_dir, exist_ok=True)
 
-        written_files = []
+    written_files = []
 
-        for key, items in grouped_results.items():
-            output_path = os.path.join(output_dir, f"{key}.jsonl")
-            with open(output_path, "w", encoding="utf-8") as f:
-                for item in items:
-                    safe_item = make_json_safe(item)
-                    json.dump(safe_item, f, ensure_ascii=False)
-                    f.write('\n')
-            print(f"✅ Results written to {output_path}")
-            written_files.append(output_path)
+    for key, items in grouped_results.items():
+        output_path = os.path.join(output_dir, f"{key}.csv")
 
-        # ✅ 执行绘图（如果开启 eval 模式）
-        if args.eval:
-            for path in written_files:
-                plot_jsonl_by_task(path, save_dir=args.plotpath)
-    else:
-        print("⚠️ No results to write.")
+        # 写入 CSV 文件
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            writer = None
+            for item in items:
+                safe_item = make_json_safe(item)
+                if writer is None:
+                    writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
+                    writer.writeheader()
+                writer.writerow(safe_item)
+
+        print(f"✅ Results written to {output_path}")
+        written_files.append(output_path)
+
+    # ✅ 执行绘图（如果开启 eval 模式）
+    if args.eval:
+        for path in written_files:
+            plot_csv_by_task(path, save_dir=args.plotpath)
+
+else:
+    print("⚠️ No results to write.")
         
         # result = result[0]
         # print(result)
