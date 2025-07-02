@@ -53,9 +53,9 @@ class GNN(base_model):
             batch_data = Batch.from_data_list(data)
         with torch.no_grad():
             _, pred = self.model(batch_data)
-            print(pred)
             if self.task=='classification':
-                pred = F.sigmoid(pred)
+                pred = torch.softmax(pred,dim=-1)
+                pred = pred[:,1]
             else:
                 if self.mean and self.std:
                     pred = pred*self.std + self.mean

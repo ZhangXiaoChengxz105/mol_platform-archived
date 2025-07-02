@@ -22,15 +22,15 @@ def test_prediction(name, target, smiles_list):
 
 if __name__ == "__main__":
     # test
-    smile1 = "Cn1c(CN2CCN(CC2)c3ccc(Cl)cc3)nc4ccccc14"
+    smile1 = "C1CCN(CC1)Cc1cccc(c1)OCCCNC(=O)C"
     smile2 = "CN(C)C(=O)c1ccc(cc1)OC"
     smile3 = "[H]C([H])([H])C([H])([H])[H]"
     smiles_list = [smile1,smile2]
-    # 分类任务测试
-    # name = "BBBP"
-    # target = "p_np"
-    # print("\nClassification task test:")
-    # test_prediction(name, target, smiles_list)
+    #分类任务测试
+    name = "BBBP"
+    target = "p_np"
+    print("\nClassification task test:")
+    test_prediction(name, target, smiles_list) # true value: 1 for smile1
 
     # 回归任务测试
     # name = "FreeSolv"
@@ -44,7 +44,22 @@ if __name__ == "__main__":
     # print("\nRegression task test:")
     # test_prediction(name, target, smiles_list) # true value: 3.54
 
-    name = "qm7"
-    target = "u0_atom"
+    # name = "qm7"
+    # target = "u0_atom"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+    
+    # name = "ESOL"
+    # target = 'measured log solubility in mols per litre'
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3]) # true value: -4.00
+
+    name = "qm8"
+    target = "f1-CAM"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+
+    name = "SIDER"
+    target = "Blood and lymphatic system disorders"
     print("\nRegression task test:")
     test_prediction(name, target, [smile2, smile3]) # true value: -712.42

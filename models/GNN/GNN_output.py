@@ -34,24 +34,18 @@ def gnn_predict(name, target, smiles_list):
     # 预测
     results = []
     for i, smiles in enumerate(smiles_list):
-        pred = predictions[i]
-        if len(pred) == 1:
-            pred_value = pred.item()
-        else:
-            measure_names = get_datasets_measure_names(name)
-            index = measure_names.index(target)
-            pred_value = pred[index]
+        pred = predictions[i].item()
         
         result = {
             "smiles": smiles,
             "task": model.task,
-            "prediction": pred_value,
+            "prediction": pred,
             "label": None,
         }
         
         # 分类任务添加标签
         if model.task == "classification":
-            result["label"] = 1 if pred_value > 0.5 else 0
+            result["label"] = 1 if pred > 0.5 else 0
         results.append(result)
     
     return results
