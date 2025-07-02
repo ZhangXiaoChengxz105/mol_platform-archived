@@ -24,24 +24,25 @@ if __name__ == "__main__":
     smile1 = "Cn1c(CN2CCN(CC2)c3ccc(Cl)cc3)nc4ccccc14"
     smile2 = "CN(C)C(=O)c1ccc(cc1)OC"
     smile3 = "[H]C([H])([H])C([H])([H])[H]"
+    smile4 = "[Cl].CC(C)NCC(O)COc1cccc2ccccc12"
     smiles_list = [smile1,smile2]
     
     # 分类任务测试
-    # name = "BBBP"
-    # print(f"\n分类任务测试 ({name}):")
-    # test_fp_prediction(name, "p_np", smiles_list)
+    name = "BBBP"
+    print(f"\n分类任务测试 ({name}):")
+    test_prediction(name, "p_np", [smile4])
     
     # # 多任务分类测试
     # name = "ClinTox"
     # print(f"\n分类任务测试 ({name}):")
-    # test_fp_prediction(name, "FDA_APPROVED", smiles_list)
-    # test_fp_prediction(name, "CT_TOX", smiles_list)
+    # test_prediction(name, "FDA_APPROVED", smiles_list)
+    # test_prediction(name, "CT_TOX", smiles_list)
     
     # # 回归任务测试
-    # name = "FreeSolv"
-    # target = "expt"
-    # print("\nRegression task test:")
-    # test_prediction(name, target, [smile2]) # true value: -11.01
+    name = "FreeSolv"
+    target = "expt"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2]) # true value: -11.01
 
     
     # name = "Lipo"
@@ -53,3 +54,8 @@ if __name__ == "__main__":
     # target = "u0_atom"
     # print("\nRegression task test:")
     # test_prediction(name, target, [smile3]) # true value: -712.42
+
+    # name = "qm8"
+    # target = "f1-CAM"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3]) # true value: -712.42

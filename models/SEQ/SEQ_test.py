@@ -27,20 +27,25 @@ if __name__ == "__main__":
     smile3 = "[H]C([H])([H])C([H])([H])[H]"
     smiles_list = [smile1,smile2]
     # # 分类任务测试
-    # name = "BBBP"
-    # target = "p_np"
-    # print("\n\nClassification task test:")
-    # test_prediction(name, target, smiles_list)
+    name = "BBBP"
+    target = "p_np"
+    print("\n\nClassification task test:")
+    test_prediction(name, target, smiles_list)
     # # 分类多任务测试
-    name = "ClinTox"
-    print("\n\nClassification multitask test:")
-    target = "FDA_APPROVED"
-    test_prediction(name, target, smiles_list)
+    # name = "ClinTox"
+    # print("\n\nClassification multitask test:")
+    # target = "FDA_APPROVED"
+    # test_prediction(name, target, smiles_list)
     
-    target = "CT_TOX"
-    test_prediction(name, target, smiles_list)
+    # target = "CT_TOX"
+    # test_prediction(name, target, smiles_list)
     # # 回归任务测试
     # name = "FreeSolv"
     # target = "expt"
     # print("\n\nRegression task test:")
     # test_prediction(name, target, smiles_list)
+
+    name = "qm8"
+    target = "f1-CAM"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2, smile3])
