@@ -34,10 +34,13 @@ def gnn_predict(name, target, smiles_list):
     # 预测
     results = []
     for i, smiles in enumerate(smiles_list):
-        measure_names = get_datasets_measure_names(name)
-        index = measure_names.index(target)
-
-        pred_value = predictions[i][index]
+        pred = predictions[i]
+        if len(pred) == 1:
+            pred_value = pred.item()
+        else:
+            measure_names = get_datasets_measure_names(name)
+            index = measure_names.index(target)
+            pred_value = pred[index]
         
         result = {
             "smiles": smiles,
