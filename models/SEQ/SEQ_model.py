@@ -65,7 +65,11 @@ class SEQ(base_model):
         # 模拟 training_step 和 validation_step 中的处理流程
         self.model.eval()
         with torch.no_grad():
-            return self.model(data)
+            pred = self.model(data)
+            if self.task=='classification':
+                pred = torch.softmax(pred,dim=-1)
+                pred = pred[:,1]
+            return pred
     
 
     class Net(nn.Module):

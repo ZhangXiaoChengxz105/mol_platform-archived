@@ -38,11 +38,12 @@ def seq_predict(name, target, smiles_list):
     predictions = model.predict(token_data)
     results = []
     for i, smiles in enumerate(smiles_list):
-        measure_names = get_datasets_measure_names(name)
-        index = measure_names.index(target)
-
-        pred_value = predictions[i][index]
-        
+        pred_value = predictions[i]
+        if name in ["Tox21", "ClinTox","MUV","SIDER"]:
+            measure_names = get_datasets_measure_names(name)
+            index = measure_names.index(target)
+            pred_value = pred_value[i][index]
+        pred_value = pred_value.item()
         result = {
             "smiles": smiles,
             "task": model.task,
