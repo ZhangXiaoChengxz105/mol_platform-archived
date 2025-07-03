@@ -66,7 +66,7 @@ class SEQ(base_model):
         self.model.eval()
         with torch.no_grad():
             pred = self.model(data)
-            if self.task=='classification':
+            if self.task=='classification' and self.name not in ["Tox21","ClinTox","MUV","SIDER"]:
                 pred = torch.softmax(pred,dim=-1)
                 pred = pred[:,1]
             return pred
@@ -107,7 +107,23 @@ class SEQ(base_model):
                 self.final = nn.Linear(smiles_embed_dim, dims)
 
             def forward(self, data_list):
-                # 提取所有样本的输入和掩码
+                smiles_emb = self.get_smiles_emb(data_list)
+                x_out = self.fc1(smiles_emb)
+                x_out = self.dropout1(x_out)
+                x_out = self.relu1(x_out)
+
+                if self.desc_skip_connection is True:
+                    x_out = x_out + smiles_emb
+
+                z = self.fc2(x_out)
+                z = self.dropout2(z)
+                z = self.relu2(z)
+                if self.desc_skip_connection is True:
+                    z = self.final(z + x_out)
+                else:
+                    z = self.final(z)
+                return z
+            def get_smiles_emb(self, data_list):
                 idx_list = [data[0] for data in data_list]
                 mask_list = [data[1] for data in data_list]
                 
@@ -139,19 +155,4 @@ class SEQ(base_model):
                 sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
                 sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
                 smiles_emb = sum_embeddings / sum_mask
-
-                x_out = self.fc1(smiles_emb)
-                x_out = self.dropout1(x_out)
-                x_out = self.relu1(x_out)
-
-                if self.desc_skip_connection is True:
-                    x_out = x_out + smiles_emb
-
-                z = self.fc2(x_out)
-                z = self.dropout2(z)
-                z = self.relu2(z)
-                if self.desc_skip_connection is True:
-                    z = self.final(z + x_out)
-                else:
-                    z = self.final(z)
-                return z
+                return smiles_emb
