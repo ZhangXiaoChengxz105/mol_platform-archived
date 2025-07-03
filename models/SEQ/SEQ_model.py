@@ -84,7 +84,7 @@ class SEQ(base_model):
                 self.tokenizer = TOKENIZER
                 self.tok_emb = nn.Embedding(len(self.tokenizer.vocab), 768)
                 # transform layer
-                torch.manual_seed(42)  # set deterministic seed
+                torch.manual_seed(0)  # set deterministic seed
                 builder = rotate_builder.from_kwargs(
                     n_layers=12,
                     n_heads=12,
