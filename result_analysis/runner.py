@@ -79,7 +79,8 @@ class Runner(model_runner_interface):
                     "model": self.model,
                     "target": target,
                     "smiles": self.smiles_list,
-                    "error": str(e)
+                    "error": str(e),
+                    "name": self.name
                 })
 
         # if self.output:
@@ -228,6 +229,17 @@ def get_all_datasets(model: str):
             matched_names.append(dataset_name)
 
     return matched_names
+
+def get_all_models():
+    # 路径设置
+    model_dir = os.path.join(project_root, "models")
+
+    # 获取模型目录下所有文件夹名（不含扩展名，统一小写）
+    all_dirs = [
+        d for d in os.listdir(model_dir)
+        if os.path.isdir(os.path.join(model_dir, d)) and not d.endswith("finetune")
+    ]
+    return all_dirs
         
     
 
@@ -236,97 +248,106 @@ if __name__ == '__main__':
     args = parse_args()
 
     # 参数拆分处理
-    if args.name.lower() == 'all':
-        names_list  = get_all_datasets(args.model)
+    if args.model.strip().lower() == "all":
+        Model_list = get_all_models()
     else:
-        names_list = [args.name]
-    finalres = []
-    for name in names_list:    
-        ds = sequenceDataset(args.name, f"../dataset/data/{name}.csv")
-        ds.loadData()
-        data = ds.provideSmilesAndLabel(name)
-        tmpsm, tmptg = get_all_targets_and_smiles(name, data)
-
-        # target_list
-        if args.target_list.strip().lower() == "all":
-            target_list = tmptg
+        Model_list = [m.strip().lower() for m in args.model.split(',')]
+    for model in Model_list:
+        if args.name.lower() == 'all':
+            names_list  = get_all_datasets(model)
         else:
-            target_list = [t.strip() for t in args.target_list.split(',')]
-        
-        valid_targets = []
-        for target in target_list:
-            try:
-                validate_datasets_measure_names(name, target)
-                valid_targets.append(target)
-            except ValueError as e:
-                print(f"⚠️ {e} —— 已移除目标 '{target}'")
-                target_list = valid_targets
+            names_list = [args.name]
+        finalres = []
+        for name in names_list:    
+            ds = sequenceDataset(args.name, f"../dataset/data/{name}.csv")
+            ds.loadData()
+            data = ds.provideSmilesAndLabel(name)
+            tmpsm, tmptg = get_all_targets_and_smiles(name, data)
 
-        if not target_list:
-            print(f"❌ 数据集 {name} 无合法 target，跳过该项")
-            continue
-
-        smiles_arg = args.smiles_list.strip().lower()
-
-        # smiles_list
-        if smiles_arg == "all":
-            smiles_list = tmpsm
-        elif re.match(r"random\d+", smiles_arg):
-            count = int(re.findall(r"\d+", smiles_arg)[0])
-            available = len(tmpsm)
-            actual_count = min(count, available)
-            if actual_count < count:
-                print(f"⚠️ Requested random{count}, but only {available} SMILES available. Using {actual_count}.")
-            smiles_list = random.sample(tmpsm, actual_count)
-        else:
-            smiles_list = [s.strip() for s in args.smiles_list.split(',')]
-        runner = Runner(args.model, name, target_list, smiles_list, args.output)
-        result = runner.run()
-        for i in range(len(result)):
-            subresult = result[i]
-            if "error" not in subresult:
-                subresult = lookup(subresult,data)
-                finalres.append(subresult)
+            # target_list
+            if args.target_list.strip().lower() == "all":
+                target_list = tmptg
             else:
-                finalres.append(subresult)
+                target_list = [t.strip() for t in args.target_list.split(',')]
             
-if finalres:
-    # ⏬ 按 model_name_target 分组
-    grouped_results = defaultdict(list)
-    for i, item in enumerate(finalres):
-        if "name" not in item or item["name"] is None:
-            print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
-    for item in finalres:
-        key = f"{item['model']}_{item['name']}_{item['target']}"
-        grouped_results[key].append(item)
+            valid_targets = []
+            for target in target_list:
+                try:
+                    validate_datasets_measure_names(name, target)
+                    valid_targets.append(target)
+                except ValueError as e:
+                    print(f"⚠️ {e} —— 已移除目标 '{target}'")
+                    target_list = valid_targets
 
-    output_dir = args.output if args.output else "output"
-    os.makedirs(output_dir, exist_ok=True)
+            if not target_list:
+                print(f"❌ 数据集 {name} 无合法 target，跳过该项")
+                continue
 
-    written_files = []
+            smiles_arg = args.smiles_list.strip().lower()
 
-    for key, items in grouped_results.items():
-        output_path = os.path.join(output_dir, f"{key}.csv")
+            # smiles_list
+            if smiles_arg == "all":
+                smiles_list = tmpsm
+            elif re.match(r"random\d+", smiles_arg):
+                count = int(re.findall(r"\d+", smiles_arg)[0])
+                available = len(tmpsm)
+                actual_count = min(count, available)
+                if actual_count < count:
+                    print(f"⚠️ Requested random{count}, but only {available} SMILES available. Using {actual_count}.")
+                smiles_list = random.sample(tmpsm, actual_count)
+            else:
+                smiles_list = [s.strip() for s in args.smiles_list.split(',')]
+            runner = Runner(model, name, target_list, smiles_list, args.output)
+            result = runner.run()
+            for i in range(len(result)):
+                subresult = result[i]
+                if "error" not in subresult:
+                    subresult = lookup(subresult,data)
+                    finalres.append(subresult)
+                else:
+                    finalres.append(subresult)
+            
+        if finalres:
+            # ⏬ 按 model_name_target 分组
+            grouped_results = defaultdict(list)
+            for i, item in enumerate(finalres):
+                if "name" not in item or item["name"] is None:
+                    print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
+            for item in finalres:
+                base_key = f"{item['model']}_{item['name']}_{item['target']}"
+                if 'error' in item and item['error']:
+                    key = f"{base_key}_error"
+                else:
+                    key = base_key
+                grouped_results[key].append(item)
 
-        # 写入 CSV 文件
-        with open(output_path, "w", encoding="utf-8", newline="") as f:
-            writer = None
-            for item in items:
-                safe_item = make_json_safe(item)
-                if writer is None:
-                    writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
-                    writer.writeheader()
-                writer.writerow(safe_item)
+            output_dir = args.output if args.output else "output"
+            os.makedirs(output_dir, exist_ok=True)
 
-        print(f"✅ Results written to {output_path}")
-        written_files.append(output_path)
+            written_files = []
 
-    # ✅ 执行绘图（如果开启 eval 模式）
-    if args.eval:
-        plot_csv_by_task(output_dir, save_dir=args.plotpath)
+            for key, items in grouped_results.items():
+                output_path = os.path.join(output_dir, f"{key}.csv")
 
-else:
-    print("⚠️ No results to write.")
+                # 写入 CSV 文件
+                with open(output_path, "w", encoding="utf-8", newline="") as f:
+                    writer = None
+                    for item in items:
+                        safe_item = make_json_safe(item)
+                        if writer is None:
+                            writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
+                            writer.writeheader()
+                        writer.writerow(safe_item)
+
+                print(f"✅ Results written to {output_path}")
+                written_files.append(output_path)
+
+            # ✅ 执行绘图（如果开启 eval 模式）
+            if args.eval:
+                plot_csv_by_task(output_dir, save_dir=args.plotpath)
+
+        else:
+            print("⚠️ No results to write.")
         
         # result = result[0]
         # print(result)
