@@ -32,12 +32,12 @@ class SEQ(base_model):
     def __init__(self, name, path):
         super().__init__(name, path)
         # SEQ细分task, 初始化模型
-        if self.name in ["Tox21","ClinTox","MUV","SIDER"]:
-            self.task = "classification_multitask"
-            self.model = self.Net(dims = get_datasets_measure_numbers(name))
         
-        elif self.task == "classification":
-            self.model = self.Net(dims = 2)
+        if self.task == "classification":
+            if self.name in ["Tox21","ClinTox","MUV","SIDER"]:
+                self.model = self.Net(dims = get_datasets_measure_numbers(name))
+            else:
+                self.model = self.Net(dims = 2)
         else:
             self.model = self.Net()
         # 初始化tokenizer
