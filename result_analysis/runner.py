@@ -6,8 +6,7 @@ import json
 from abc import ABC, abstractmethod
 import yaml
 from utils import plot_csv_by_task
-runner_dir = os.path.dirname(__file__)
-project_root = os.path.abspath(os.path.join(runner_dir, '..'))
+project_root = os.path.dirname(os.path.dirname(__file__))
 provider_dir = os.path.join(project_root, 'dataset')
 model_dir = os.path.join(project_root, 'models')
 sys.path.append(provider_dir)
@@ -259,7 +258,7 @@ if __name__ == '__main__':
             names_list = [args.name]
         finalres = []
         for name in names_list:    
-            ds = sequenceDataset(args.name, f"../dataset/data/{name}.csv")
+            ds = sequenceDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
             ds.loadData()
             data = ds.provideSmilesAndLabel(name)
             tmpsm, tmptg = get_all_targets_and_smiles(name, data)
