@@ -321,6 +321,7 @@ if __name__ == '__main__':
                 grouped_results[key].append(item)
 
             output_dir = args.output if args.output else "output"
+            output_dir = os.path.join(project_root, 'results', output_dir)
             os.makedirs(output_dir, exist_ok=True)
 
             written_files = []
