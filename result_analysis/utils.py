@@ -501,44 +501,46 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
 def plot_analysis_metrics_with_values(model_dataset_metrics_classification, model_dataset_metrics_regression, save_dir):
     def draw_plot(data_dict, metrics_keys, filename_prefix, ylabel):
         os.makedirs(os.path.join(save_dir, "analysis"), exist_ok=True)
+        try:
+            for dataset in next(iter(data_dict.values())).keys():
+                values_per_model = defaultdict(list)
 
-        for dataset in next(iter(data_dict.values())).keys():
-            values_per_model = defaultdict(list)
+                for model, dataset_dict in data_dict.items():
+                    if dataset not in dataset_dict:
+                        continue
+                    for metric in metrics_keys:
+                        val = dataset_dict[dataset].get(metric, np.nan)
+                        values_per_model[model].append(float(val))
 
-            for model, dataset_dict in data_dict.items():
-                if dataset not in dataset_dict:
+                if not values_per_model:
                     continue
-                for metric in metrics_keys:
-                    val = dataset_dict[dataset].get(metric, np.nan)
-                    values_per_model[model].append(float(val))
 
-            if not values_per_model:
-                continue
+                fig, ax = plt.subplots(figsize=(10, 6))
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+                models = list(values_per_model.keys())
+                x = np.arange(len(metrics_keys))
+                width = 0.15
+                offsets = np.linspace(-width * len(models) / 2, width * len(models) / 2, len(models))
 
-            models = list(values_per_model.keys())
-            x = np.arange(len(metrics_keys))
-            width = 0.15
-            offsets = np.linspace(-width * len(models) / 2, width * len(models) / 2, len(models))
+                for i, model in enumerate(models):
+                    vals = values_per_model[model]
+                    bar = ax.bar(x + offsets[i], vals, width, label=model)
+                    for j, v in enumerate(vals):
+                        ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}", ha='center', va='bottom', fontsize=8)
 
-            for i, model in enumerate(models):
-                vals = values_per_model[model]
-                bar = ax.bar(x + offsets[i], vals, width, label=model)
-                for j, v in enumerate(vals):
-                    ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}", ha='center', va='bottom', fontsize=8)
+                ax.set_ylabel(ylabel)
+                ax.set_title(f"{dataset} - {filename_prefix}")
+                ax.set_xticks(x)
+                ax.set_xticklabels(metrics_keys, rotation=45)
+                ax.legend()
+                ax.grid(axis='y', linestyle='--', alpha=0.7)
+                plt.tight_layout()
 
-            ax.set_ylabel(ylabel)
-            ax.set_title(f"{dataset} - {filename_prefix}")
-            ax.set_xticks(x)
-            ax.set_xticklabels(metrics_keys, rotation=45)
-            ax.legend()
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            plt.tight_layout()
-
-            save_path = os.path.join(save_dir, "analysis", f"analysis_{dataset}_{filename_prefix}.png")
-            plt.savefig(save_path, dpi=300)
-            plt.close()
+                save_path = os.path.join(save_dir, "analysis", f"analysis_{dataset}_{filename_prefix}.png")
+                plt.savefig(save_path, dpi=300)
+                plt.close()
+        except Exception as e:
+            print(f"❌ No data to plot for {filename_prefix}: {e}")
 
     # 分类任务
     classification_metrics = ["Macro Accuracy", "Macro Precision", "Macro Recall", "Macro F1", "Macro AUC", "Macro MCC"]
