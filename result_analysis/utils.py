@@ -21,6 +21,7 @@ from sklearn.metrics import (
 )
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from matplotlib.ticker import MaxNLocator
+import re
 
 
 
@@ -215,36 +216,80 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
 
 
     folder_path = Path(folder_path)
-    for csv_file in folder_path.glob("*.csv"):
-        if "error" in csv_file.name.lower():
-            continue
-        with open(csv_file, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    task_type = row.get("task", "").lower()
-                    model = row.get("model", "unknown")
-                    dataset = row.get("name", "unknown")
-                    target = row.get("target", "unknown")
-                    key = f"{model}::{dataset}::{target}"
-                    group_key = f"{model}::{dataset}"
-                    model_key = model
+    run_dirs = sorted(
+    [d for d in folder_path.iterdir() if d.is_dir() and re.match(r"run\d+", d.name)],
+    key=lambda d: int(re.findall(r"\d+", d.name)[0]),
+    reverse=True
+    )
+    print(run_dirs)
+    if not run_dirs:
+        for csv_file in folder_path.glob("*.csv"):
+            if "error" in csv_file.name.lower():
+                continue
+            with open(csv_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        task_type = row.get("task", "").lower()
+                        model = row.get("model", "unknown")
+                        dataset = row.get("name", "unknown")
+                        target = row.get("target", "unknown")
+                        key = f"{model}::{dataset}::{target}"
+                        group_key = f"{model}::{dataset}"
+                        model_key = model
 
-                    pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
-                    truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
+                        pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                        truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
 
-                    if pred is None or truth is None:
+                        if pred is None or truth is None:
+                            continue
+
+                        if task_type == "regression":
+                            regression_data[key].append((truth, pred))
+                        elif "classification" in task_type:
+                            classification_data[key].append((truth, pred))
+                            # classification_group_data[group_key].append((truth, pred))
+                            # classification_model_data[model_key].append((truth, pred))
+                    except Exception as e:
+                        print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
                         continue
-
-                    if task_type == "regression":
-                        regression_data[key].append((truth, pred))
-                    elif "classification" in task_type:
-                        classification_data[key].append((truth, pred))
-                        # classification_group_data[group_key].append((truth, pred))
-                        # classification_model_data[model_key].append((truth, pred))
-                except Exception as e:
-                    print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
+    else:
+        all_paths =[]
+        for run_dir in run_dirs:
+            for csv_file in run_dir.glob("*.csv"):
+                if "error" in csv_file.name.lower():
                     continue
+                if csv_file.name in all_paths:
+                    continue
+                else:
+                    all_paths.append(csv_file.name)
+                with open(csv_file, "r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            task_type = row.get("task", "").lower()
+                            model = row.get("model", "unknown")
+                            dataset = row.get("name", "unknown")
+                            target = row.get("target", "unknown")
+                            key = f"{model}::{dataset}::{target}"
+                            group_key = f"{model}::{dataset}"
+                            model_key = model
+
+                            pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                            truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
+
+                            if pred is None or truth is None:
+                                continue
+
+                            if task_type == "regression":
+                                regression_data[key].append((truth, pred))
+                            elif "classification" in task_type:
+                                classification_data[key].append((truth, pred))
+                                # classification_group_data[group_key].append((truth, pred))
+                                # classification_model_data[model_key].append((truth, pred))
+                        except Exception as e:
+                            print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
+                            continue
 
     for key, values in classification_data.items():
         model, dataset, target = key.split("::")

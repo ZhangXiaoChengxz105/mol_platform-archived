@@ -129,6 +129,8 @@ def parse_args():
                         help="Choose which runner to execute")
     parser.add_argument('--plotpath', type=str, default="plots",
                         help="Directory to save plotted images (default: 'plots')")
+    parser.add_argument('--plotprevisousruns', type=lambda x: x.lower() == 'true', default=False,
+                        help="Whether to plot previous runs (True/False)")
     
     return parser.parse_args()
 
@@ -239,6 +241,21 @@ def get_all_models():
         if os.path.isdir(os.path.join(model_dir, d)) and not d.endswith("finetune")
     ]
     return all_dirs
+def get_latest_run_num(output):
+    path = os.path.join(project_root, 'results', output)
+    run_dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d)) and re.match(r"run\d+", d)]
+    
+    if not run_dirs:
+        return "run1"
+
+    # 提取 run 后面的数字并找最大
+    run_nums = [int(re.findall(r'\d+', d)[0]) for d in run_dirs]
+    next_run = max(run_nums) + 1
+
+    return f"run{next_run}"
+    
+    
+    
         
     
 
@@ -313,6 +330,7 @@ if __name__ == '__main__':
                 if "name" not in item or item["name"] is None:
                     print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
             for item in finalres:
+                runid = get_latest_run_num(args.output) if args.output else "run1"
                 base_key = f"{item['model']}_{item['name']}_{item['target']}"
                 if 'error' in item and item['error']:
                     key = f"{base_key}_error"
@@ -321,7 +339,10 @@ if __name__ == '__main__':
                 grouped_results[key].append(item)
 
             output_dir = args.output if args.output else "output"
-            output_dir = os.path.join(project_root, 'results', output_dir)
+            all_output_dir = os.path.join(project_root, 'results', output_dir)
+            output_dir = os.path.join(project_root, 'results', output_dir,runid)
+
+            
             os.makedirs(output_dir, exist_ok=True)
 
             written_files = []
@@ -344,7 +365,10 @@ if __name__ == '__main__':
 
             # ✅ 执行绘图（如果开启 eval 模式）
             if args.eval:
-                plot_csv_by_task(output_dir, save_dir=os.path.join(output_dir,args.plotpath))
+                if not args.plotprevisousruns:
+                    plot_csv_by_task(output_dir, save_dir=os.path.join(output_dir,args.plotpath))
+                else:
+                    plot_csv_by_task(all_output_dir, save_dir=os.path.join(output_dir,args.plotpath))
 
         else:
             print("⚠️ No results to write.")
