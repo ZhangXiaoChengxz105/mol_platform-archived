@@ -1,7 +1,8 @@
 model: gnn
-name: qm7
+name: FreeSolv
 eval: true 
 target_list: all
-smiles_list: all
-output: results.json
+smiles_list: random200
+output: results
 plotpath: plots
+plotprevisousruns: true
