@@ -43,9 +43,24 @@ if __name__ == "__main__":
     # name = "FreeSolv"
     # target = "expt"
     # print("\n\nRegression task test:")
-    # test_prediction(name, target, smiles_list)
+    # test_prediction(name, target, [smile2])
 
-    name = "qm8"
-    target = "f1-CAM"
-    print("\nRegression task test:")
-    test_prediction(name, target, [smile2, smile3])
+    # name = "qm7"
+    # target = "u0_atom"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile3]) # -712.42
+
+    # name = "qm8"
+    # target = "f1-CAM"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3])
+    
+    # name = "SIDER"
+    # target = "Hepatobiliary disorders"
+    # print("\nClassification task test:")
+    # test_prediction(name, target, [smile2, smile3])
+
+    name = "Tox21"
+    target = "NR-AR"
+    print("\n\nClassification task test:")
+    test_prediction(name, target, smiles_list)

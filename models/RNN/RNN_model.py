@@ -13,15 +13,19 @@ class RNNModel(base_model):
         self.normalizer = None
         self.model = None
         
-        # 模型参数
-        self.embed_dim = 128
-        self.hidden_size = 512  # 与论文一致
-        self.num_layers = 1     # 与论文一致
-        self.dropout = 0.2
+        # 论文初始模型参数
+        self.net_params = {
+            'embed_dim': 128,
+            'hidden_size': 512,
+            'num_layers': 1,
+            'dropout': 0.2
+        }
 
-    def load_weights(self):
+    def load_weights(self, path=None):
         if not os.path.exists(self.path):
-            raise FileNotFoundError(f"模型文件不存在: {self.path}")
+            self.path = path
+            if not os.path.exists(self.path):
+                raise FileNotFoundError(f"模型文件不存在: {self.path}")
         
         try:
             checkpoint = torch.load(self.path, map_location='cpu')
@@ -29,26 +33,32 @@ class RNNModel(base_model):
             # 加载关键参数
             self.char_to_index = checkpoint['char_to_index']  # 加载词汇表
             output_dim = checkpoint['output_dim']
-            
+            if 'net_params' in checkpoint:
+                self.net_params = checkpoint['net_params']
             # 构建模型
             self.model = self.Net(
                 vocab_size=len(self.char_to_index) + 1,  # +1 for padding
-                embed_dim=self.embed_dim,
-                hidden_size=self.hidden_size,
-                num_layers=self.num_layers,
                 output_dim=output_dim,
-                dropout=self.dropout
+                **self.net_params
             )
-            
             # 加载权重
             self.model.load_state_dict(checkpoint['state_dict'])
             self.model.eval()
             print(f"RNN模型权重已从 {self.path} 加载")
             
             # 加载归一化器
+            self.normalizer = None
             if 'normalizer' in checkpoint and checkpoint['normalizer']:
-                self.normalizer = Normalizer(torch.tensor([0.0]))
-                self.normalizer.load_state_dict(checkpoint['normalizer'])
+                normalizer_list = checkpoint['normalizer']
+                # 根据保存时的格式加载
+                if isinstance(normalizer_list, list):
+                    # 多任务情况：列表中的每个元素是一个归一化器状态字典
+                    self.normalizer = []
+                    for state_dict in normalizer_list:
+                        norm = Normalizer(torch.tensor([0.0]))
+                        norm.load_state_dict(state_dict)
+                        self.normalizer.append(norm)
+                    # print(f"加载 {len(self.normalizer)} 个归一化器")
         except Exception as e:
             print(f"详细错误信息: {str(e)}")
             raise RuntimeError(f"权重加载失败: {str(e)}")
@@ -60,13 +70,18 @@ class RNNModel(base_model):
         self.model.eval()
         with torch.no_grad():
             predictions = self.model(sequences, lengths)
-            
-            if self.task == "classification":
-                predictions = torch.sigmoid(predictions)
-            elif self.task == "regression" and self.normalizer:
+        
+        if self.task == "classification":
+            predictions = torch.sigmoid(predictions)
+        elif self.task == "regression" and self.normalizer:
+            # 处理多任务归一化 - 每个任务有自己的归一化器
+            if isinstance(self.normalizer, list):
+                for i in range(len(self.normalizer)):
+                    predictions[:, i] = self.normalizer[i].denorm(predictions[:, i])
+            else:
                 predictions = self.normalizer.denorm(predictions)
                 
-            return predictions
+        return predictions
 
     class Net(nn.Module):
         def __init__(self, vocab_size, embed_dim, hidden_size, num_layers, output_dim, dropout=0.2):

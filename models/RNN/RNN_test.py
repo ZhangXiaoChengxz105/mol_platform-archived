@@ -31,19 +31,24 @@ if __name__ == "__main__":
     print("\n\n分类任务测试 (BBBP - p_np):")
     test_prediction(name, target, smiles_list)
     
-    # # 分类多任务测试 - ClinTox
-    # name = "ClinTox"
-    # print("\n\n分类多任务测试 (ClinTox):")
-    # target = "FDA_APPROVED"
-    # test_prediction(name, target, smiles_list)
-    # target = "CT_TOX"
-    # test_prediction(name, target, smiles_list)
+    # 分类多任务测试 - ClinTox
+    name = "ClinTox"
+    print("\n\n分类多任务测试 (ClinTox):")
+    target = "FDA_APPROVED"
+    test_prediction(name, target, smiles_list)
+    target = "CT_TOX"
+    test_prediction(name, target, smiles_list)
     
     # # 回归任务测试 - FreeSolv
     # name = "FreeSolv"
     # target = "expt"
     # print("\n\n回归任务测试 (FreeSolv - expt):")
     # test_prediction(name, target, smiles_list)
+    
+    # name = "qm7"
+    # target = "u0_atom"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3]) # true value: -712.42
     
     # # 回归任务测试 - qm8
     # name = "qm8"

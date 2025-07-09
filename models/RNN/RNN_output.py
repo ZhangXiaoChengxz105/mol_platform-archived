@@ -22,21 +22,10 @@ def rnn_predict(name, target, smiles_list):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     model_dir = os.path.join(base_dir, "RNN_finetune")
     
-    # 查找最新模型
-    model_path = None
-    model_idx = 0
-    while True:
-        model_filename = f"{name}{model_idx if model_idx > 0 else ''}.pt"
-        candidate_path = os.path.join(model_dir, model_filename)
-        if os.path.exists(candidate_path):
-            model_path = candidate_path
-            model_idx += 1
-        else:
-            break
     
-    if model_path is None:
-        raise FileNotFoundError(f"找不到{name}的模型文件")
     
+    model_filename = f"{name}.pt"
+    model_path = os.path.join(model_dir, model_filename)
     model = RNNModel(name, model_path)
     
     # 加载模型权重（包括词汇表）
