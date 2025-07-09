@@ -17,12 +17,7 @@ MODEL_MAP = {
     'SVM': FP_SVM,
     'XGB': FP_XGB
 }
-File_MAP = {
-    'NN': '.pt',
-    'RF': '.joblib',
-    'SVM': '.joblib',
-    'XGB': '.joblib'
-}
+
 def fp_predict(name, target, smiles_list, model_type = 'NN'):
     """
     FP预测主函数
@@ -34,18 +29,26 @@ def fp_predict(name, target, smiles_list, model_type = 'NN'):
     if model_type not in MODEL_LIST:
         raise ValueError(f"模型类型错误: {model_type},\n可选模型类型: {MODEL_LIST}")
     
-    is_multitask = True if model in ['Multitask_list'] else None
+    is_multitask = True if model_type in ['Multitask_list'] else None
     
     # 验证数据集和目标
     validate_datasets_measure_names(name, target)
 
     # 构建模型路径
-    model_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "FP_finetune",
-        model_type,
-        f"{name}{File_MAP[model_type]}"
-    )
+    if model_type in MultiTask_List:
+        model_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "FP_finetune",
+            model_type,
+            f"{name}.pt"
+        )
+    else: 
+        model_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "FP_finetune",
+            model_type,
+            f"{name}_{target}.joblib"
+        )
     print(f"加载模型: {model_path}")
     
     # 创建模型实例

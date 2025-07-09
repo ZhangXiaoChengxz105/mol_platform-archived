@@ -39,7 +39,7 @@ class FP_NN(base_model):
             raise ValueError("模型路径必须以.pt结尾")
         
         try:
-            checkpoint = torch.load(load_path, weights_only = False)
+            checkpoint = torch.load(load_path)
             # 严格匹配权重
             state_dict = checkpoint['state_dict']
             self.model.data_scaler = checkpoint['data_scaler']
@@ -119,7 +119,7 @@ class FP_RF(base_model):
     
     def predict(self, fp_tensor):
         fp_array = fp_tensor.numpy()
-        preds = self.model.predict_proba(fp_array)[:, 1] if self.task_type == "classification" \
+        preds = self.model.predict_proba(fp_array)[:, 1] if self.task == "classification" \
                 else self.model.predict(fp_array)
         return torch.tensor(preds, dtype=torch.float32)
 
@@ -140,7 +140,7 @@ class FP_SVM(base_model):
     
     def predict(self, fp_tensor):
         fp_array = fp_tensor.numpy()
-        if self.task_type == "classification":
+        if self.task == "classification":
             return torch.tensor(self.model.decision_function(fp_array), dtype=torch.float32)
         return torch.tensor(self.model.predict(fp_array), dtype=torch.float32)
 
@@ -161,6 +161,6 @@ class FP_XGB(base_model):
     
     def predict(self, fp_tensor):
         fp_array = fp_tensor.numpy()
-        if self.task_type == "classification":
+        if self.task == "classification":
             return torch.tensor(self.model.predict_proba(fp_array)[:, 1], dtype=torch.float32)
         return torch.tensor(self.model.predict(fp_array), dtype=torch.float32)
