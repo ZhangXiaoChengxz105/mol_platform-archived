@@ -16,7 +16,7 @@ config = {
         'Musculoskeletal and connective tissue disorders',
         'Gastrointestinal disorders', 'Social circumstances',
         'Immune system disorders', 'Reproductive system and breast disorders',
-        'Neoplasms benign, malignant and unspecified (incl cysts and polyps)',
+        'Neoplasms benign, malignant and unspecified',
         'General disorders and administration site conditions',
         'Endocrine disorders', 'Surgical and medical procedures',
         'Vascular disorders', 'Blood and lymphatic system disorders',
@@ -45,6 +45,11 @@ config = {
 }
 dataset_names = ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
 regression_tasks = ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+
+
+def get_datasets():
+    return dataset_names
+
 def get_datasets_measure_names(dataset_name):
     """
     获取MoleculeNet数据集的目标列表。
@@ -56,11 +61,13 @@ def get_datasets_measure_names(dataset_name):
         return config[dataset_name]
     except KeyError:
         raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {dataset_names}")
-    
+
 def get_datasets_measure_numbers(dataset_name):
     return get_datasets_measure_names(dataset_name).__len__()
+
 def get_datasets_task_type(dataset_name):
-    return 'regression 'if dataset_name in regression_tasks else 'classification'
+    return 'regression' if dataset_name in regression_tasks else 'classification'
+
 def validate_datasets_measure_names(dataset_name, measure_name):
     if dataset_name not in dataset_names:
         raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {dataset_names}")
