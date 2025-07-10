@@ -49,16 +49,21 @@ def smiles_to_fingerprint_with_labels(smiles_list, labels, fp_type='mixed'):
         raise ValueError(f"SMILES列表长度（{len(smiles_list)}）与标签长度（{len(labels)}）不一致")
     fp_list = []
     valid_smiles = []
-    mask = np.ones(len(labels))
+    # 初步筛选空labels
+    mask = ~np.isnan(labels).astype(bool)
+    smiles_list = np.array(smiles_list)[mask]
+    labels = labels[mask]
+    # 筛选无效smiles
+    labels_mask = np.ones(len(labels))
     for i, smiles in enumerate(smiles_list):
         # 关键：不要标准化，直接使用原始SMILES
         mol = Chem.MolFromSmiles(smiles)  # 与MoleData完全一致
-        
         # 复制原始过滤逻辑
         if mol is None:
             print(f"过滤无效SMILES（索引{i}）: {smiles}")
-            mask[i] = 0
+            labels_mask[i] = 0
             continue
+        
             
         # 生成指纹（与FPN类一致）
         if fp_type == 'mixed':
@@ -74,4 +79,4 @@ def smiles_to_fingerprint_with_labels(smiles_list, labels, fp_type='mixed'):
         fp_list.append(fp)
         valid_smiles.append(smiles)  # 保留原始SMILES
     
-    return torch.tensor(fp_list, dtype=torch.float32), labels[mask.astype(bool)]
+    return torch.tensor(fp_list, dtype=torch.float32), labels[labels_mask.astype(bool)]

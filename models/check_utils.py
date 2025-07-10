@@ -16,7 +16,7 @@ config = {
         'Musculoskeletal and connective tissue disorders',
         'Gastrointestinal disorders', 'Social circumstances',
         'Immune system disorders', 'Reproductive system and breast disorders',
-        'Neoplasms benign, malignant and unspecified',
+        'Neoplasms benign, malignant and unspecified (incl cysts and polyps)',
         'General disorders and administration site conditions',
         'Endocrine disorders', 'Surgical and medical procedures',
         'Vascular disorders', 'Blood and lymphatic system disorders',
