@@ -39,7 +39,7 @@ class FP_NN(base_model):
             raise ValueError("模型路径必须以.pt结尾")
         
         try:
-            checkpoint = torch.load(load_path)
+            checkpoint = torch.load(load_path, weights_only=False)
             # 严格匹配权重
             state_dict = checkpoint['state_dict']
             self.model.data_scaler = checkpoint['data_scaler']

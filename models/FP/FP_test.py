@@ -30,12 +30,27 @@ if __name__ == "__main__":
     # 分类任务测试
     name = "BBBP"
     print(f"\n分类任务测试 ({name}):")
-    test_prediction(name, "p_np", [smile4], model_type='RF')
+    model_type = 'NN'
+    test_prediction(name, "p_np", [smile4], model_type)
+    model_type = 'RF'
+    test_prediction(name, "p_np", [smile4], model_type)
+    model_type = 'SVM'
+    test_prediction(name, "p_np", [smile4], model_type)
+    model_type = 'XGB'
+    test_prediction(name, "p_np", [smile4], model_type)
+
     
-    test_prediction(name, "p_np", [smile4], model_type='SVM')
-    
-    test_prediction(name, "p_np", [smile4], model_type='XGB')
-    
+    name = "FreeSolv"
+    target = "expt"
+    print(f"\n分类任务测试 ({name}):")
+    model_type = 'NN'
+    test_prediction(name, target, [smile4], model_type)
+    model_type = 'RF'
+    test_prediction(name, target, [smile4], model_type)
+    model_type = 'SVM'
+    test_prediction(name, target, [smile4], model_type)
+    model_type = 'XGB'
+    test_prediction(name, target, [smile4], model_type)
     # # 多任务分类测试
     # name = "ClinTox"
     # print(f"\n分类任务测试 ({name}):")
