@@ -256,6 +256,7 @@ def get_all_models():
     
 def get_latest_run_num(output):
     path = os.path.join(project_root, 'results', output)
+    os.makedirs(path, exist_ok=True)
     run_dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d)) and re.match(r"run\d+", d)]
     
     if not run_dirs:
