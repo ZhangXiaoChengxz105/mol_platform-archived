@@ -22,6 +22,11 @@ from sklearn.metrics import (
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from matplotlib.ticker import MaxNLocator
 import re
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 
 

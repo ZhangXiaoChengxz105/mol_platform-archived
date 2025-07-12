@@ -1,6 +1,10 @@
 import os
 import sys
 import yaml
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Step 1: 加载配置
 config_path = os.path.join(os.path.dirname(__file__), "config_run.yaml")
