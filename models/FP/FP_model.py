@@ -87,7 +87,6 @@ class FP_NN(base_model):
             """前向传播"""
             output = self.fpn(fp_tensor)
             output = self.ffn(output)
-            print(self.data_scaler)
             if self.data_scaler:
                 output = output*self.data_scaler[1] + self.data_scaler[0]
             return output

@@ -10,7 +10,7 @@ from FP_model import FP_NN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 from FP_model import FP_NN, FP_RF, FP_SVM, FP_XGB
 MODEL_LIST = ['NN', 'RF', 'SVM', 'XGB']
-MultiTask_List = ['NN']
+MULTITASK_LIST = ['NN']
 MODEL_MAP = {
     'NN': FP_NN,
     'RF': FP_RF,
@@ -29,13 +29,13 @@ def fp_predict(name, target, smiles_list, model_type = 'NN'):
     if model_type not in MODEL_LIST:
         raise ValueError(f"模型类型错误: {model_type},\n可选模型类型: {MODEL_LIST}")
     
-    is_multitask = True if model_type in ['Multitask_list'] else None
+    is_multitask = True if model_type in MULTITASK_LIST else False
     
     # 验证数据集和目标
     validate_datasets_measure_names(name, target)
 
     # 构建模型路径
-    if model_type in MultiTask_List:
+    if model_type in MULTITASK_LIST:
         model_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "FP_finetune",
@@ -69,16 +69,11 @@ def fp_predict(name, target, smiles_list, model_type = 'NN'):
         if is_multitask:
             # 多任务模型 - 需要根据target找到对应的任务索引
             measure_names = get_datasets_measure_names(name)
-            try:
-                index = measure_names.index(target)
-            except ValueError:
-                raise ValueError(f"目标'{target}'不在数据集'{name}'的测量指标中。"
-                                 f"可用指标: {measure_names}")
-            
-            pred_value = predictions[i][index].item()
+            index = measure_names.index(target)
+            pred_value = predictions[i][index]
         else:
             # 单任务模型 - 直接使用预测值
-            pred_value = predictions[i].item()
+            pred_value = predictions[i]
         
         result = {
             "smiles": smiles,
