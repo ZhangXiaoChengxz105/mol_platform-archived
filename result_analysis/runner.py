@@ -42,12 +42,12 @@ def make_json_safe(obj):
         return obj
 
 class Runner(model_runner_interface):
-    def __init__(self, model, name, target_list, smiles_list, output=None):
+    def __init__(self, model, name, target_list, smiles_list, Model_type=None):
         self.model = model
         self.name = name
         self.target_list = target_list
         self.smiles_list = smiles_list
-        self.output = output
+        self.Model_type = Model_type 
 
     def run(self):
         model_id = self.model.strip().lower()
@@ -66,21 +66,32 @@ class Runner(model_runner_interface):
         results = []
         for target in self.target_list:
             try:
-                result = predict_func(self.name, target, self.smiles_list)
+                # ✅ 根据是否传入 Model_type 动态构造调用
+                if self.Model_type is not None:
+                    result = predict_func(self.name, target, self.smiles_list, model_type=self.Model_type)
+                else:
+                    result = predict_func(self.name, target, self.smiles_list)
+
                 for item in result:
-                    item["model"]= self.model
-                    item["name"]= self.name
+                    if self.Model_type:
+                        item["model"] = f"{self.model}_{self.Model_type}"
+                    else:
+                        item["model"] = self.model
+                    item["name"] = self.name
                     item["target"] = target
-                
+
                 results.extend(result)
+
             except Exception as e:
-                results.append({ 
-                    "model": self.model,
+                results.append({
+                    "model": f"{self.model}_{self.Model_type}" if self.Model_type else self.model,
                     "target": target,
                     "smiles": self.smiles_list,
                     "error": str(e),
                     "name": self.name
                 })
+
+        return results
 
         # if self.output:
         #     with open(self.output, 'w') as f:
@@ -131,6 +142,7 @@ def parse_args():
                         help="Directory to save plotted images (default: 'plots')")
     parser.add_argument('--plotprevisousruns', type=lambda x: x.lower() == 'true', default=False,
                         help="Whether to plot previous runs (True/False)")
+    parser.add_argument('--Model_type', type = str, required = False, help = 'specific arugment for fp model type')
     
     return parser.parse_args()
 
@@ -219,8 +231,12 @@ def get_all_datasets(model: str):
         raise FileNotFoundError(f"Model path '{model_dir}' does not exist.")
     
     # 获取模型目录下所有文件名（不含扩展名，统一小写）
-    all_files = os.listdir(model_dir)
-    file_prefixes = [os.path.splitext(f)[0].lower() for f in all_files if os.path.isfile(os.path.join(model_dir, f))]
+    file_prefixes = set()
+    for root, _, files in os.walk(model_dir):
+        for file in files:
+            prefix = os.path.splitext(file)[0].lower()
+            file_prefixes.add(prefix)
+
 
     # 匹配数据集名
     matched_names = []
@@ -269,6 +285,11 @@ if __name__ == '__main__':
     else:
         Model_list = [m.strip().lower() for m in args.model.split(',')]
     for model in Model_list:
+        if model =="fp":
+            if args.Model_type.strip().lower() =='all':
+                Model_type_list = ["NN",'RF','SVM','XGB']
+            else:
+                Model_type_list =[m.strip().upper() for m in args.Model_type.split(',')]
         if args.name.lower() == 'all':
             names_list  = get_all_datasets(model)
         else:
@@ -313,15 +334,27 @@ if __name__ == '__main__':
                 smiles_list = random.sample(tmpsm, actual_count)
             else:
                 smiles_list = [s.strip() for s in args.smiles_list.split(',')]
-            runner = Runner(model, name, target_list, smiles_list, args.output)
-            result = runner.run()
-            for i in range(len(result)):
-                subresult = result[i]
-                if "error" not in subresult:
-                    subresult = lookup(subresult,data)
-                    finalres.append(subresult)
-                else:
-                    finalres.append(subresult)
+            if model == 'fp':
+                for model_type in Model_type_list:
+                    runner = Runner(model, name, target_list, smiles_list,model_type)
+                    result = runner.run()
+                    for i in range(len(result)):
+                        subresult = result[i]
+                        if "error" not in subresult:
+                            subresult = lookup(subresult,data)
+                            finalres.append(subresult)
+                        else:
+                            finalres.append(subresult)
+            else:
+                runner = Runner(model, name, target_list, smiles_list)
+                result = runner.run()
+                for i in range(len(result)):
+                    subresult = result[i]
+                    if "error" not in subresult:
+                        subresult = lookup(subresult,data)
+                        finalres.append(subresult)
+                    else:
+                        finalres.append(subresult)
             
         if finalres:
             # ⏬ 按 model_name_target 分组

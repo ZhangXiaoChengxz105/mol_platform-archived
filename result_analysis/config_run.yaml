@@ -1,8 +1,9 @@
-model: gnn
-name: FreeSolv
+model: fp
+Model_type: NN
+name: all
 eval: true 
 target_list: all
 smiles_list: random200
 output: results
 plotpath: plots
-plotprevisousruns: true
+plotprevisousruns: false
