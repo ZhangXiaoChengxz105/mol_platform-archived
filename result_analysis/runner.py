@@ -142,7 +142,7 @@ def parse_args():
                         help="Directory to save plotted images (default: 'plots')")
     parser.add_argument('--plotprevisousruns', type=lambda x: x.lower() == 'true', default=False,
                         help="Whether to plot previous runs (True/False)")
-    parser.add_argument('--Model_type', type = str, required = False, help = 'specific arugment for fp model type')
+    # parser.add_argument('--Model_type', type = str, required = False, help = 'specific arugment for fp model type')
     
     return parser.parse_args()
 
@@ -165,6 +165,7 @@ def lookup(item,data):
     
 def lookupindex(model,name):
     # 查找对应模型中的 task的索引id、
+    # 查找单个数据集中的某个任务在这个数据集中的索引
     config_path = os.path.join(project_root, 'dataset','smile_config.yaml')   
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
@@ -217,46 +218,40 @@ def get_all_targets_and_smiles(name,data):
     return smiles_col, label_cols
     
 def get_all_datasets(model: str):
-    # 路径设置
-    config_path = os.path.join(project_root, "dataset", "smile_config.yaml")
-    model_dir = os.path.join(project_root, "models", f"{model}_finetune")
+    # 设置路径
+    config_path = os.path.join(project_root, "models", "model_datasets.yaml")
 
-    # 读取 config 中的所有数据集名
-    with open(config_path, 'r') as f:
+    # 判断文件是否存在
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"模型配置文件未找到: {config_path}")
+
+    # 读取 YAML 文件
+    with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
-    all_dataset_names = config.get("datasets", {}).keys()
 
-    # 检查模型目录是否存在
-    if not os.path.exists(model_dir):
-        raise FileNotFoundError(f"Model path '{model_dir}' does not exist.")
+    # 获取模型对应部分
+    model_section = config.get("models", {}).get(model)
+    if not model_section:
+        raise ValueError(f"模型 '{model}' 不存在于配置文件中")
+
+    # 返回 datasets 列表
+    return model_section.get("datasets", [])
     
-    # 获取模型目录下所有文件名（不含扩展名，统一小写）
-    file_prefixes = set()
-    for root, _, files in os.walk(model_dir):
-        for file in files:
-            prefix = os.path.splitext(file)[0].lower()
-            file_prefixes.add(prefix)
-
-
-    # 匹配数据集名
-    matched_names = []
-    for dataset_name in all_dataset_names:
-        dataset_lc = dataset_name.lower()
-        if any(prefix.startswith(dataset_lc) for prefix in file_prefixes):
-            matched_names.append(dataset_name)
-
-    return matched_names
 
 def get_all_models():
-    # 路径设置
-    model_dir = os.path.join(project_root, "models")
+    # 假设 project_root 已定义，例如：
+    # project_root = os.path.dirname(os.path.dirname(__file__))
+    config_path = os.path.join(project_root, 'models', 'model_datasets.yaml')
 
-    # 获取模型目录下所有文件夹名（不含扩展名，统一小写）
-    all_dirs = [
-        d for d in os.listdir(model_dir)
-        if os.path.isdir(os.path.join(model_dir, d)) and not d.endswith("finetune")
-    ]
-    return all_dirs
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"配置文件未找到: {config_path}")
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+
+    model_dict = config.get("models", {})
+    return list(model_dict.keys())
+    
 def get_latest_run_num(output):
     path = os.path.join(project_root, 'results', output)
     run_dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d)) and re.match(r"run\d+", d)]
@@ -285,13 +280,15 @@ if __name__ == '__main__':
     else:
         Model_list = [m.strip().lower() for m in args.model.split(',')]
     for model in Model_list:
-        if model =="fp":
-            if args.Model_type.strip().lower() =='all':
-                Model_type_list = ["NN",'RF','SVM','XGB']
-            else:
-                Model_type_list =[m.strip().upper() for m in args.Model_type.split(',')]
+        if "_" in args.model:
+            model, model_type = args.model.split("_", 1)
+            model = model.strip().lower()
+            model_type = model_type.strip().upper()
+        else:
+            model = args.model.strip().lower()
+            model_type = None
         if args.name.lower() == 'all':
-            names_list  = get_all_datasets(model)
+            names_list  = get_all_datasets(f"{model}_{model_type}")
         else:
             names_list = [args.name]
         finalres = []
@@ -314,7 +311,7 @@ if __name__ == '__main__':
                     valid_targets.append(target)
                 except ValueError as e:
                     print(f"⚠️ {e} —— 已移除目标 '{target}'")
-                    target_list = valid_targets
+            target_list = valid_targets
 
             if not target_list:
                 print(f"❌ 数据集 {name} 无合法 target，跳过该项")
@@ -334,17 +331,16 @@ if __name__ == '__main__':
                 smiles_list = random.sample(tmpsm, actual_count)
             else:
                 smiles_list = [s.strip() for s in args.smiles_list.split(',')]
-            if model == 'fp':
-                for model_type in Model_type_list:
-                    runner = Runner(model, name, target_list, smiles_list,model_type)
-                    result = runner.run()
-                    for i in range(len(result)):
-                        subresult = result[i]
-                        if "error" not in subresult:
-                            subresult = lookup(subresult,data)
-                            finalres.append(subresult)
-                        else:
-                            finalres.append(subresult)
+            if model_type:
+                runner = Runner(model, name, target_list, smiles_list,model_type)
+                result = runner.run()
+                for i in range(len(result)):
+                    subresult = result[i]
+                    if "error" not in subresult:
+                        subresult = lookup(subresult,data)
+                        finalres.append(subresult)
+                    else:
+                        finalres.append(subresult)
             else:
                 runner = Runner(model, name, target_list, smiles_list)
                 result = runner.run()
