@@ -21,9 +21,7 @@ def rnn_predict(name, target, smiles_list):
     # 创建模型实例
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     model_dir = os.path.join(base_dir, "RNN_finetune")
-    
-    
-    
+   
     model_filename = f"{name}.pt"
     model_path = os.path.join(model_dir, model_filename)
     model = RNNModel(name, model_path)
