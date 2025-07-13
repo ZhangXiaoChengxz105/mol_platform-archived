@@ -1,3 +1,5 @@
+moleculenet_datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+
 models:
   fp_NN:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
@@ -7,13 +9,15 @@ models:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
   fp_XGB:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-  gnn:
+  gnn_gin:
+    datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+  gnn_gcn:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
   rnn:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
   seq:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-# datasets:
+# datasets_targets:
 #   Tox21: ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD',
 #           'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
 #   ClinTox: ['FDA_APPROVED', 'CT_TOX']

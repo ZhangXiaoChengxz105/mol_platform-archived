@@ -46,6 +46,8 @@ config = {
 dataset_names = ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
 regression_tasks = ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
 
+def get_config():
+    return config
 
 def get_datasets():
     return dataset_names

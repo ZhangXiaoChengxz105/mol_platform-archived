@@ -4,7 +4,6 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_model import base_model
-from check_utils import get_datasets_measure_numbers
 
 class RNNModel(base_model):
     def __init__(self, name, path):

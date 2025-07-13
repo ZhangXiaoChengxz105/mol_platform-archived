@@ -1,7 +1,9 @@
+model: rnn
+name: SIDER
 eval: true
-model: fp_NN
-name: BACE
-output: results
+target_list: all
+smiles_list: random2000
+output: all
 plotpath: plots
 plotprevisousruns: false
 smiles_list: random200
