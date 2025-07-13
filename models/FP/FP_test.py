@@ -27,35 +27,36 @@ if __name__ == "__main__":
     smile4 = "[Cl].CC(C)NCC(O)COc1cccc2ccccc12"
     smiles_list = [smile1,smile2]
     
-    # 分类任务测试
-    name = "BBBP"
-    print(f"\n分类任务测试 ({name}):")
-    model_type = 'NN'
-    test_prediction(name, "p_np", [smile4], model_type)
-    model_type = 'RF'
-    test_prediction(name, "p_np", [smile4], model_type)
-    model_type = 'SVM'
-    test_prediction(name, "p_np", [smile4], model_type)
-    model_type = 'XGB'
-    test_prediction(name, "p_np", [smile4], model_type)
+    # # 分类任务测试
+    # name = "BBBP"
+    # print(f"\n分类任务测试 ({name}):")
+    # model_type = 'NN'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'RF'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'SVM'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'XGB'
+    # test_prediction(name, "p_np", [smile4], model_type)
 
     
-    name = "FreeSolv"
-    target = "expt"
-    print(f"\n分类任务测试 ({name}):")
-    model_type = 'NN'
-    test_prediction(name, target, [smile4], model_type)
-    model_type = 'RF'
-    test_prediction(name, target, [smile4], model_type)
-    model_type = 'SVM'
-    test_prediction(name, target, [smile4], model_type)
-    model_type = 'XGB'
-    test_prediction(name, target, [smile4], model_type)
-    # # 多任务分类测试
-    # name = "ClinTox"
+    # name = "FreeSolv"
+    # target = "expt"
     # print(f"\n分类任务测试 ({name}):")
-    # test_prediction(name, "FDA_APPROVED", smiles_list)
-    # test_prediction(name, "CT_TOX", smiles_list)
+    # model_type = 'NN'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'RF'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'SVM'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'XGB'
+    # test_prediction(name, target, [smile4], model_type)
+    # # # 多任务分类测试
+    # name = "ClinTox"
+    # model_type = 'XGB'
+    # print(f"\n分类任务测试 ({name}):")
+    # test_prediction(name, "FDA_APPROVED", smiles_list, model_type)
+    # test_prediction(name, "CT_TOX", smiles_list, model_type)
     
     # # 回归任务测试
     # name = "FreeSolv"
@@ -75,6 +76,13 @@ if __name__ == "__main__":
     # test_prediction(name, target, [smile3]) # true value: -712.42
 
     # name = "qm8"
+    # model_type = 'SVM'
     # target = "f1-CAM"
     # print("\nRegression task test:")
-    # test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+    # test_prediction(name, target, [smile2, smile3],model_type) # true value: -712.42
+
+    name = "qm9"
+    model_type = 'SVM'
+    target = "mu"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2, smile3],model_type)

@@ -5,9 +5,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from GNN_output import gnn_predict
 
 
-def test_prediction(name, target, smiles_list):
-    print(f"\n测试 {name} 数据集, 目标: {target}")
-    results = gnn_predict(name, target, smiles_list)
+def test_prediction(name, target, smiles_list, model_type = "GCN"):
+    print(f"\n测试 {name} 数据集, 目标: {target}, 模型类型: {model_type}")
+    results = gnn_predict(name, target, smiles_list, model_type)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     name = "BBBP"
     target = "p_np"
     print("\nClassification task test:")
-    test_prediction(name, target, smiles_list) # true value: 1 for smile1
+    test_prediction(name, target, smiles_list, model_type = "GCN") # true value: 1 for smile1
 
     # 回归任务测试
     # name = "FreeSolv"
@@ -54,12 +54,12 @@ if __name__ == "__main__":
     # print("\nRegression task test:")
     # test_prediction(name, target, [smile2, smile3]) # true value: -4.00
 
-    name = "qm8"
-    target = "f1-CAM"
-    print("\nRegression task test:")
-    test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+    # name = "qm8"
+    # target = "f1-CAM"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3])
 
-    name = "SIDER"
-    target = "Blood and lymphatic system disorders"
-    print("\nRegression task test:")
-    test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+    # name = "SIDER"
+    # target = "Blood and lymphatic system disorders"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2, smile3])
