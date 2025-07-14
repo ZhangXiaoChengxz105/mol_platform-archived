@@ -1,7 +1,10 @@
-model: gnn
-name: qm7
-eval: true 
+model: rnn
+name: SIDER
+eval: true
 target_list: all
-smiles_list: all
-output: results.json
+smiles_list: random2000
+output: all
 plotpath: plots
+plotprevisousruns: false
+smiles_list: random200
+target_list: Class

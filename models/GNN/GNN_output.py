@@ -8,7 +8,8 @@ from GNN_data import smiles_to_graph
 from GNN_model import GNN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
-def gnn_predict(name, target, smiles_list):
+MODEL_LIST = ['GIN', 'GCN']
+def gnn_predict(name, target, smiles_list, model_type = "GIN"):
     """
     简单的GNN预测接口
     Args:
@@ -18,12 +19,16 @@ def gnn_predict(name, target, smiles_list):
     Returns:
         预测结果
     """
+    if model_type not in MODEL_LIST:
+        raise ValueError(f"模型类型错误: {model_type},\n可选模型类型: {MODEL_LIST.keys()}")
+    
     validate_datasets_measure_names(name, target)
-    path = os.path.join(models_root, "GNN_finetune", f"{name}_{target}.pth")
+    
+    path = os.path.join(models_root, "GNN_finetune", f"GNN_{model_type}",f"{name}_{target}.pth")
     print("Input path:", path)
     # 创建模型
     if os.path.exists(path):
-        model = GNN(name, path)
+        model = GNN(name, path, model_type)
         model.load_weights(path)
         print(".pth文件已加载，模型初始化成功")
     else:

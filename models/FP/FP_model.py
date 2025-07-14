@@ -9,7 +9,7 @@ models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from base_model import base_model
 from check_utils import get_datasets_measure_numbers
 
-class FPModel(base_model):
+class FP_NN(base_model):
     def __init__(self, name, path):
         super().__init__(name, path)
         self.fp_dim = 1489  # PubChem混合指纹维度
@@ -39,7 +39,7 @@ class FPModel(base_model):
             raise ValueError("模型路径必须以.pt结尾")
         
         try:
-            checkpoint = torch.load(load_path, weights_only = False)
+            checkpoint = torch.load(load_path, weights_only=False)
             # 严格匹配权重
             state_dict = checkpoint['state_dict']
             self.model.data_scaler = checkpoint['data_scaler']
@@ -87,7 +87,79 @@ class FPModel(base_model):
             """前向传播"""
             output = self.fpn(fp_tensor)
             output = self.ffn(output)
-            print(self.data_scaler)
             if self.data_scaler:
                 output = output*self.data_scaler[1] + self.data_scaler[0]
             return output
+        
+
+
+# 传统机器学习模型
+import joblib
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.svm import SVC, SVR
+from xgboost import XGBClassifier, XGBRegressor
+
+# 在FPModel类后添加以下类
+
+class FP_RF(base_model):
+    def __init__(self, name, path):
+        super().__init__(name, path)
+        self.fp_dim = 1489
+        self.model = None
+        
+        
+    def load_weights(self, path=None):
+        load_path = path if path else self.path
+        try:
+            self.model = joblib.load(load_path)
+            print(f"RF模型权重已从 {load_path} 加载")
+        except Exception as e:
+            raise RuntimeError(f"RF权重加载失败: {str(e)}")
+    
+    def predict(self, fp_tensor):
+        fp_array = fp_tensor.numpy()
+        preds = self.model.predict_proba(fp_array)[:, 1] if self.task == "classification" \
+                else self.model.predict(fp_array)
+        return torch.tensor(preds, dtype=torch.float32)
+
+class FP_SVM(base_model):
+    def __init__(self, name, path):
+        super().__init__(name, path)
+        self.fp_dim = 1489
+        self.model = None
+        
+        
+    def load_weights(self, path=None):
+        load_path = path if path else self.path
+        try:
+            self.model = joblib.load(load_path)
+            print(f"SVM模型权重已从 {load_path} 加载")
+        except Exception as e:
+            raise RuntimeError(f"SVM权重加载失败: {str(e)}")
+    
+    def predict(self, fp_tensor):
+        fp_array = fp_tensor.numpy()
+        if self.task == "classification":
+            return torch.tensor(self.model.decision_function(fp_array), dtype=torch.float32)
+        return torch.tensor(self.model.predict(fp_array), dtype=torch.float32)
+
+class FP_XGB(base_model):
+    def __init__(self, name, path):
+        super().__init__(name, path)
+        self.fp_dim = 1489
+        self.model = None
+        
+        
+    def load_weights(self, path=None):
+        load_path = path if path else self.path
+        try:
+            self.model = joblib.load(load_path)
+            print(f"XGB模型权重已从 {load_path} 加载")
+        except Exception as e:
+            raise RuntimeError(f"XGB权重加载失败: {str(e)}")
+    
+    def predict(self, fp_tensor):
+        fp_array = fp_tensor.numpy()
+        if self.task == "classification":
+            return torch.tensor(self.model.predict_proba(fp_array)[:, 1], dtype=torch.float32)
+        return torch.tensor(self.model.predict(fp_array), dtype=torch.float32)

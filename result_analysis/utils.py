@@ -21,6 +21,12 @@ from sklearn.metrics import (
 )
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from matplotlib.ticker import MaxNLocator
+import re
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 
 
@@ -215,36 +221,80 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
 
 
     folder_path = Path(folder_path)
-    for csv_file in folder_path.glob("*.csv"):
-        if "error" in csv_file.name.lower():
-            continue
-        with open(csv_file, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    task_type = row.get("task", "").lower()
-                    model = row.get("model", "unknown")
-                    dataset = row.get("name", "unknown")
-                    target = row.get("target", "unknown")
-                    key = f"{model}::{dataset}::{target}"
-                    group_key = f"{model}::{dataset}"
-                    model_key = model
+    run_dirs = sorted(
+    [d for d in folder_path.iterdir() if d.is_dir() and re.match(r"run\d+", d.name)],
+    key=lambda d: int(re.findall(r"\d+", d.name)[0]),
+    reverse=True
+    )
+    print(run_dirs)
+    if not run_dirs:
+        for csv_file in folder_path.glob("*.csv"):
+            if "error" in csv_file.name.lower():
+                continue
+            with open(csv_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        task_type = row.get("task", "").lower()
+                        model = row.get("model", "unknown")
+                        dataset = row.get("name", "unknown")
+                        target = row.get("target", "unknown")
+                        key = f"{model}::{dataset}::{target}"
+                        group_key = f"{model}::{dataset}"
+                        model_key = model
 
-                    pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
-                    truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
+                        pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                        truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
 
-                    if pred is None or truth is None:
+                        if pred is None or truth is None:
+                            continue
+
+                        if task_type == "regression":
+                            regression_data[key].append((truth, pred))
+                        elif "classification" in task_type:
+                            classification_data[key].append((truth, pred))
+                            # classification_group_data[group_key].append((truth, pred))
+                            # classification_model_data[model_key].append((truth, pred))
+                    except Exception as e:
+                        print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
                         continue
-
-                    if task_type == "regression":
-                        regression_data[key].append((truth, pred))
-                    elif "classification" in task_type:
-                        classification_data[key].append((truth, pred))
-                        # classification_group_data[group_key].append((truth, pred))
-                        # classification_model_data[model_key].append((truth, pred))
-                except Exception as e:
-                    print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
+    else:
+        all_paths =[]
+        for run_dir in run_dirs:
+            for csv_file in run_dir.glob("*.csv"):
+                if "error" in csv_file.name.lower():
                     continue
+                if csv_file.name in all_paths:
+                    continue
+                else:
+                    all_paths.append(csv_file.name)
+                with open(csv_file, "r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            task_type = row.get("task", "").lower()
+                            model = row.get("model", "unknown")
+                            dataset = row.get("name", "unknown")
+                            target = row.get("target", "unknown")
+                            key = f"{model}::{dataset}::{target}"
+                            group_key = f"{model}::{dataset}"
+                            model_key = model
+
+                            pred = float(row["prediction"]) if row.get("prediction") not in [None, "", "null"] else None
+                            truth = float(row["truth"]) if row.get("truth") not in [None, "", "null"] else None
+
+                            if pred is None or truth is None:
+                                continue
+
+                            if task_type == "regression":
+                                regression_data[key].append((truth, pred))
+                            elif "classification" in task_type:
+                                classification_data[key].append((truth, pred))
+                                # classification_group_data[group_key].append((truth, pred))
+                                # classification_model_data[model_key].append((truth, pred))
+                        except Exception as e:
+                            print(f"⚠️ Skipping bad row in {csv_file}: {row} ({e})")
+                            continue
 
     for key, values in classification_data.items():
         model, dataset, target = key.split("::")
@@ -501,44 +551,46 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
 def plot_analysis_metrics_with_values(model_dataset_metrics_classification, model_dataset_metrics_regression, save_dir):
     def draw_plot(data_dict, metrics_keys, filename_prefix, ylabel):
         os.makedirs(os.path.join(save_dir, "analysis"), exist_ok=True)
+        try:
+            for dataset in next(iter(data_dict.values())).keys():
+                values_per_model = defaultdict(list)
 
-        for dataset in next(iter(data_dict.values())).keys():
-            values_per_model = defaultdict(list)
+                for model, dataset_dict in data_dict.items():
+                    if dataset not in dataset_dict:
+                        continue
+                    for metric in metrics_keys:
+                        val = dataset_dict[dataset].get(metric, np.nan)
+                        values_per_model[model].append(float(val))
 
-            for model, dataset_dict in data_dict.items():
-                if dataset not in dataset_dict:
+                if not values_per_model:
                     continue
-                for metric in metrics_keys:
-                    val = dataset_dict[dataset].get(metric, np.nan)
-                    values_per_model[model].append(float(val))
 
-            if not values_per_model:
-                continue
+                fig, ax = plt.subplots(figsize=(10, 6))
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+                models = list(values_per_model.keys())
+                x = np.arange(len(metrics_keys))
+                width = 0.15
+                offsets = np.linspace(-width * len(models) / 2, width * len(models) / 2, len(models))
 
-            models = list(values_per_model.keys())
-            x = np.arange(len(metrics_keys))
-            width = 0.15
-            offsets = np.linspace(-width * len(models) / 2, width * len(models) / 2, len(models))
+                for i, model in enumerate(models):
+                    vals = values_per_model[model]
+                    bar = ax.bar(x + offsets[i], vals, width, label=model)
+                    for j, v in enumerate(vals):
+                        ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}", ha='center', va='bottom', fontsize=8)
 
-            for i, model in enumerate(models):
-                vals = values_per_model[model]
-                bar = ax.bar(x + offsets[i], vals, width, label=model)
-                for j, v in enumerate(vals):
-                    ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}", ha='center', va='bottom', fontsize=8)
+                ax.set_ylabel(ylabel)
+                ax.set_title(f"{dataset} - {filename_prefix}")
+                ax.set_xticks(x)
+                ax.set_xticklabels(metrics_keys, rotation=45)
+                ax.legend()
+                ax.grid(axis='y', linestyle='--', alpha=0.7)
+                plt.tight_layout()
 
-            ax.set_ylabel(ylabel)
-            ax.set_title(f"{dataset} - {filename_prefix}")
-            ax.set_xticks(x)
-            ax.set_xticklabels(metrics_keys, rotation=45)
-            ax.legend()
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            plt.tight_layout()
-
-            save_path = os.path.join(save_dir, "analysis", f"analysis_{dataset}_{filename_prefix}.png")
-            plt.savefig(save_path, dpi=300)
-            plt.close()
+                save_path = os.path.join(save_dir, "analysis", f"analysis_{dataset}_{filename_prefix}.png")
+                plt.savefig(save_path, dpi=300)
+                plt.close()
+        except Exception as e:
+            print(f"❌ No data to plot for {filename_prefix}: {e}")
 
     # 分类任务
     classification_metrics = ["Macro Accuracy", "Macro Precision", "Macro Recall", "Macro F1", "Macro AUC", "Macro MCC"]

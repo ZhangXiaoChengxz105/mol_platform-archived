@@ -12,5 +12,6 @@ __pycache__/
 *.pth
 *.ckpt
 *.pt
+*.joblib
 *.zip
 /fast-transformers

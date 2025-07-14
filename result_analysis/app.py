@@ -1,0 +1,307 @@
+import streamlit as st
+import yaml
+import os
+import sys
+import subprocess
+import pathlib
+import pandas as pd
+import re
+import json
+from datetime import datetime
+try:
+    project_root = pathlib.Path(__file__).resolve().parents[1]
+except NameError:
+    project_root = pathlib.Path(os.getcwd()).resolve().parents[0]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+from models.check_utils import get_datasets_measure_names
+
+
+st.set_page_config(layout="wide")
+st.title("分子性质预测集成平台")
+st.markdown("根据模型类型自动加载数据集，仅在需要时显示额外参数，最终保存为配置文件并可供模型运行。")
+
+# ----------- 配置路径 -----------
+CONFIG_PATH = os.path.join(project_root,'result_analysis','config_run.yaml')
+MODEL_MAP_PATH = os.path.join(project_root,'models','model_datasets.yaml')
+RUN_SCRIPT_PATH = os.path.join(project_root,'result_analysis','run_all.py')
+HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history,json')
+
+# ----------- 加载 config.yaml -----------
+@st.cache_data
+def load_config(path=CONFIG_PATH):
+    if not os.path.exists(path):
+        return {
+            "model": "fp",
+            "name": "BBBP",
+            "eval": True,
+            "target_list": "all",
+            "smiles_list": "random200",
+            "output": "results",
+            "plotpath": "plots",
+            "plotprevisousruns": False
+        }
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def display_csv_tables(csv_dir):
+    csv_files = [f for f in os.listdir(csv_dir) if f.endswith(".csv")]
+    for csv_file in sorted(csv_files):
+        csv_path = os.path.join(csv_dir, csv_file)
+        with st.expander(f"📄 {csv_file}"):
+            try:
+                df = pd.read_csv(csv_path)
+                st.dataframe(df, use_container_width=True)
+            except Exception as e:
+                st.warning(f"{csv_file} 加载失败: {e}")
+                
+def display_images_recursively(base_dir):
+    for root, dirs, files in os.walk(base_dir):
+        image_files = [f for f in files if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+        if image_files:
+            rel_path = os.path.relpath(root, base_dir)
+            with st.expander(f"📂 {rel_path}"):
+                cols = st.columns(2)  # 每行两列
+                for idx, image in enumerate(sorted(image_files)):
+                    image_path = os.path.join(root, image)
+                    col = cols[idx % 2]  # 交替写入两个列
+                    with col:
+                        st.image(image_path, caption=image, use_column_width="always")
+
+                
+def get_latest_run_folder(base="results"):
+    run_dirs = [d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d)) and re.match(r"run\d+", d)]
+    run_numbers = [int(re.findall(r"run(\d+)", d)[0]) for d in run_dirs]
+    if run_numbers:
+        latest_run = f"run{max(run_numbers)}"
+        return latest_run,os.path.join(base, latest_run)
+    return None
+
+# ----------- 保存 config.yaml -----------
+def save_config(config, path=CONFIG_PATH):
+    with open(path, "w") as f:
+        yaml.safe_dump(config, f, allow_unicode=True)
+        
+def list_to_csv_fields(config_dict, fields):
+    for field in fields:
+        if isinstance(config_dict.get(field), list):
+            config_dict[field] = ",".join(str(x) for x in config_dict[field])
+    return config_dict
+
+
+def get_datasets_for_model(model_list, model_map):
+    """
+    从模型列表中提取所有模型支持的数据集，并返回它们的交集。
+
+    参数：
+    - model_list (List[str]): 模型名称列表，如 ['fp_NN', 'gnn']
+    - model_map (Dict[str, Dict]): 从 model_datasets.yaml 加载的模型映射
+
+    返回：
+    - List[str]: 所有模型共同支持的数据集名称列表
+    """
+    all_dataset_sets = []
+
+    for model in model_list:
+        model_info = model_map.get(model)
+        if model_info and "datasets" in model_info:
+            all_dataset_sets.append(set(model_info["datasets"]))
+
+    if not all_dataset_sets:
+        return []
+
+    common_datasets = set.intersection(*all_dataset_sets)
+    return sorted(list(common_datasets))
+
+
+# ----------- 从 model_dataset_map.yaml 获取数据集列表 -----------
+@st.cache_data
+def load_model_map(path=MODEL_MAP_PATH):
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f).get("models", {})
+
+model_map = load_model_map()
+model_options = list(model_map.keys())
+model_options_with_all = model_options + ["all"]
+
+# ----------- 初始化 session_state -----------
+if "selected_models" not in st.session_state:
+    st.session_state["selected_models"] = []
+if "selected_datasets" not in st.session_state:
+    st.session_state["selected_datasets"] = []
+if "eval" not in st.session_state:
+    st.session_state["eval"] = True
+if "smiles_list" not in st.session_state:
+    st.session_state["smiles_list"] = "random200"
+# ----------- 记录模型选择前的值 -----------
+def on_model_change():
+    st.session_state["selected_datasets"] = []
+    st.session_state["selected_tasks"] = []
+
+# ✅ 多选控件（使用 session 保存 + 回调重置）
+st.multiselect(
+    "模型类型 (model)",
+    options=model_options_with_all,
+    key="selected_models",
+    on_change=on_model_change
+)
+
+if "all" in st.session_state["selected_models"]:
+    model = model_options
+else:
+    model = st.session_state["selected_models"]
+
+#--------datasets 只有在 model 出现的时候再出现
+def on_dataset_change():
+    st.session_state["selected_tasks"] = []  # 重置任务选择
+    st.session_state["_last_selected_dataset"] = None  # 清除上次任务的缓存标记
+
+if "selected_datasets" not in st.session_state:
+    st.session_state["selected_datasets"] = []
+
+if model:
+    available_datasets = get_datasets_for_model(model, model_map)
+    dataset_options_with_all = available_datasets + ["all"]
+
+    st.multiselect(
+        "数据集名称 (name)",
+        options=dataset_options_with_all,
+        key="selected_datasets",
+        on_change=on_dataset_change
+    )
+
+    if "all" in st.session_state["selected_datasets"]:
+        name = available_datasets
+    else:
+        name = st.session_state["selected_datasets"]
+
+# ----------- 任务选择（target_list）-----------
+if "selected_tasks" not in st.session_state:
+    st.session_state["selected_tasks"] = []
+
+if "name" in locals() and name:
+    if len(name) > 1:
+        st.markdown("**任务名称 (target_list):** all")
+        target_list = "all"
+    else:
+        dataset_name = name[0]
+
+        try:
+            available_tasks = get_datasets_measure_names(dataset_name)
+            task_options_with_all = available_tasks + ["all"]
+
+            # 如果换了数据集，重置任务选择
+            if st.session_state.get("_last_selected_dataset") != dataset_name:
+                st.session_state["selected_tasks"] = []
+                st.session_state["_last_selected_dataset"] = dataset_name
+
+            st.multiselect(
+                "任务名称 (target_list)",
+                options=task_options_with_all,
+                key="selected_tasks"
+            )
+
+            if "all" in st.session_state["selected_tasks"]:
+                target_list = available_tasks
+            else:
+                target_list = st.session_state["selected_tasks"]
+
+        except Exception as e:
+            st.warning(f"无法获取任务列表：{e}")
+            target_list = "all"
+
+
+# ----------- smiles_list 输入框 -----------
+if "eval" not in st.session_state:
+    st.session_state["eval"] = True
+eval = st.checkbox("是否评估模型并绘图 (eval)", key="eval")
+
+# ----------- smiles_list 输入框 -----------
+if "smiles_list" not in st.session_state:
+    st.session_state["smiles_list"] = "random200"
+smiles_list = st.text_input(
+    "SMILES 列表 (支持 random<number>、all 或逗号分隔字符串)",
+    key="smiles_list"
+)
+
+# ----------- 运行按钮 -----------
+if st.button("运行模型配置并保存配置文件"):
+    fields_to_convert = ["model", "name", "target_list"]
+    config = load_config()
+    config["model"] = st.session_state["selected_models"]
+    config["name"] = name
+    config["target_list"] = target_list
+    config["eval"] = st.session_state["eval"]
+    config["smiles_list"] = st.session_state["smiles_list"]
+    config = list_to_csv_fields(config, fields_to_convert)
+
+    save_config(config)
+    st.success("配置已保存！")
+
+    try:
+        result = subprocess.run(
+            ["conda", "run", "-n", "molplat", "python", RUN_SCRIPT_PATH],
+            check=True  # 自动抛出异常如果失败
+        )
+        st.success("✅ 模型运行完成！")
+        result_path = os.path.join(project_root,'results','results')
+        run_id,latest_run_path = get_latest_run_folder(result_path)
+        history_record = {
+            "timestamp": datetime.now().isoformat(),
+            "run_id": run_id,
+            "model": config["model"],
+            "dataset": config["name"],
+            "task": config["target_list"],
+            "smiles": config["smiles_list"],
+            "eval": config["eval"]
+        }
+        history_list = []
+        if os.path.exists(HISTORY_PATH):
+            with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+                history_list = json.load(f)
+        history_list.insert(0, history_record)
+        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history_list, f, indent=2, ensure_ascii=False)
+
+        if latest_run_path:
+            if config['eval']:
+                plot_dir = os.path.join(latest_run_path, "plots")
+                st.markdown("## 🖼️ 模型分析图 (plots)")
+                display_images_recursively(plot_dir)
+
+            st.markdown("## 📊 模型结果表格 (CSVs)")
+            display_csv_tables(latest_run_path)
+        else:
+            st.warning("未找到任何 runXX 结果目录。")
+
+    except subprocess.CalledProcessError:
+        st.error("❌ 模型运行失败！")
+    except Exception as e:
+        st.error(f"运行出错：{e}")
+
+if os.path.exists(HISTORY_PATH):
+    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+        history_list = json.load(f)
+
+    if history_list:
+        st.markdown("---")
+        st.markdown("### 📂 历史运行记录")
+        history_labels = [f"{h['run_id']} | 模型: {h['model']} | 数据集: {h['dataset']} | 任务: {h['task']}| smiles:{h['smiles']}" for h in history_list]
+        selected_index = st.selectbox("选择历史记录运行 ID 以查看结果：", options=list(range(len(history_list))), format_func=lambda i: history_labels[i])
+
+        selected = history_list[selected_index]
+        selected_run_path = os.path.join(project_root, 'results', 'results', selected["run_id"])
+
+        if os.path.exists(selected_run_path):
+            if selected.get("eval", True):
+                st.markdown("## 🖼️ 模型分析图 (plots)")
+                display_images_recursively(os.path.join(selected_run_path, "plots"))
+
+            st.markdown("## 📊 模型结果表格 (CSVs)")
+            display_csv_tables(selected_run_path)
+        else:
+            st.warning("找不到对应的历史目录。")
+    
+        
+    

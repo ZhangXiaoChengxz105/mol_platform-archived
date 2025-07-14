@@ -3,7 +3,8 @@ conda create -n molplat python=3.11.8 -y
 conda activate molplat
 # 安装依赖
 pip install torch torch-geometric rdkit==2024.3.5 transformers pandas
-pip install seaborn matplotlib pyyaml numpy scikit-learn
+
+pip install seaborn matplotlib pyyaml numpy scikit-learn==1.7.0 xgboost
 
 ## 克隆并安装fast-transformers
 conda install -c conda-forge cxx-compiler -y

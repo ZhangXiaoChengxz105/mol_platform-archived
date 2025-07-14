@@ -4,10 +4,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from FP_output import fp_predict
 
-def test_prediction(name, target, smiles_list):
+def test_prediction(name, target, smiles_list, model_type = 'NN'):
     """测试FP预测"""
-    print(f"\n测试 {name} 数据集, 目标: {target}")
-    results = fp_predict(name, target, smiles_list)
+    print(f"\n测试 {name} 数据集, 目标: {target}, 模型类型: {model_type}")
+    results = fp_predict(name, target, smiles_list, model_type = model_type)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]
@@ -27,22 +27,42 @@ if __name__ == "__main__":
     smile4 = "[Cl].CC(C)NCC(O)COc1cccc2ccccc12"
     smiles_list = [smile1,smile2]
     
-    # 分类任务测试
-    name = "BBBP"
-    print(f"\n分类任务测试 ({name}):")
-    test_prediction(name, "p_np", [smile4])
-    
-    # # 多任务分类测试
-    # name = "ClinTox"
+    # # 分类任务测试
+    # name = "BBBP"
     # print(f"\n分类任务测试 ({name}):")
-    # test_prediction(name, "FDA_APPROVED", smiles_list)
-    # test_prediction(name, "CT_TOX", smiles_list)
+    # model_type = 'NN'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'RF'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'SVM'
+    # test_prediction(name, "p_np", [smile4], model_type)
+    # model_type = 'XGB'
+    # test_prediction(name, "p_np", [smile4], model_type)
+
+    
+    # name = "FreeSolv"
+    # target = "expt"
+    # print(f"\n分类任务测试 ({name}):")
+    # model_type = 'NN'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'RF'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'SVM'
+    # test_prediction(name, target, [smile4], model_type)
+    # model_type = 'XGB'
+    # test_prediction(name, target, [smile4], model_type)
+    # # # 多任务分类测试
+    # name = "ClinTox"
+    # model_type = 'XGB'
+    # print(f"\n分类任务测试 ({name}):")
+    # test_prediction(name, "FDA_APPROVED", smiles_list, model_type)
+    # test_prediction(name, "CT_TOX", smiles_list, model_type)
     
     # # 回归任务测试
-    name = "FreeSolv"
-    target = "expt"
-    print("\nRegression task test:")
-    test_prediction(name, target, [smile2]) # true value: -11.01
+    # name = "FreeSolv"
+    # target = "expt"
+    # print("\nRegression task test:")
+    # test_prediction(name, target, [smile2]) # true value: -11.01
 
     
     # name = "Lipo"
@@ -56,6 +76,13 @@ if __name__ == "__main__":
     # test_prediction(name, target, [smile3]) # true value: -712.42
 
     # name = "qm8"
+    # model_type = 'SVM'
     # target = "f1-CAM"
     # print("\nRegression task test:")
-    # test_prediction(name, target, [smile2, smile3]) # true value: -712.42
+    # test_prediction(name, target, [smile2, smile3],model_type) # true value: -712.42
+
+    name = "qm9"
+    model_type = 'SVM'
+    target = "mu"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2, smile3],model_type)
