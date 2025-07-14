@@ -1,95 +1,114 @@
+from rdkit.Chem import MACCSkeys
+from rdkit import Chem
 from base import BaseDataset
 from provider import dataProvider
 import pandas as pd
 from rdkit.Chem import AllChem
+import yaml
 import numpy as np
 import torch
-from rdkit import Chem
-import yaml
 
-class fingerprintDataset(BaseDataset, dataProvider):
+class ECFPDataset(BaseDataset, dataProvider):
     def loadData(self):
-        df = pd.read_csv(self.datasetPath)
-        self.data = df
+        self.data = pd.read_csv(self.datasetPath)
 
     def preprocessData(self):
         pass
 
-
     @staticmethod
-    def smiles_to_fingerprint(smiles, radius=2, n_bits=2048, as_tensor=True):
+    def smiles_to_ecfp(smiles, radius=2, n_bits=2048):
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
             return None
-
         fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=n_bits)
         arr = np.zeros((n_bits,), dtype=np.int8)
         AllChem.DataStructs.ConvertToNumpyArray(fp, arr)
-
-        if as_tensor:
-            return torch.tensor(arr, dtype=torch.float32)
-        return arr
-
+        return torch.tensor(arr, dtype=torch.float32)
 
     def provideData(self, model_name):
-        """
-        Returns:
-            dict:
-                {
-                    "input": torch.Tensor [N, 2048],    # 每个 SMILES 转换后的 ECFP 指纹向量
-                    "label": List[int | List[float]]   # 对应标签列表
-                }
-        """
         with open("smile_config.yaml", "r") as f:
             config = yaml.safe_load(f)
-
-        if model_name not in config["datasets"]:
-            raise ValueError(f"No such config for model: {model_name}")
 
         task_cfg = config["datasets"][model_name]
         smiles_col = task_cfg["smiles_col"]
         label_cols = task_cfg["label_cols"]
 
-        fingerprint_list = []
-        label_list = []
-
+        inputs, labels = [], []
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
             label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
-
-            fp = self.smiles_to_fingerprint(smiles)
+            fp = self.smiles_to_ecfp(smiles)
             if fp is not None:
-                fingerprint_list.append(fp)
-                label_list.append(label)
+                inputs.append(fp)
+                labels.append(label)
 
-        return {
-            "input": torch.stack(fingerprint_list),  # Tensor shape: [N, 2048]
-            "label": label_list
-        }
+        return {"input": torch.stack(inputs), "label": labels}
+
     def provideLabel(self, model_name, task_name=None):
         with open("smile_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
-        if model_name not in config["datasets"]:
-            raise ValueError(f"No such config for model: {model_name}")
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        labels = []
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+            if self.smiles_to_ecfp(smiles) is not None:
+                label = row[task_name] if task_name else (row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols]))
+                labels.append(label)
+        return labels
+
+
+class MACCSDataset(BaseDataset, dataProvider):
+    def loadData(self):
+        self.data = pd.read_csv(self.datasetPath)
+
+    def preprocessData(self):
+        pass
+
+    @staticmethod
+    def smiles_to_maccs(smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return None
+        fp = MACCSkeys.GenMACCSKeys(mol)
+        arr = np.zeros((167,), dtype=np.int8)
+        AllChem.DataStructs.ConvertToNumpyArray(fp, arr)
+        return torch.tensor(arr, dtype=torch.float32)
+
+    def provideData(self, model_name):
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
 
         task_cfg = config["datasets"][model_name]
         smiles_col = task_cfg["smiles_col"]
         label_cols = task_cfg["label_cols"]
 
-        if task_name and task_name not in label_cols:
-            raise ValueError(f"task_name '{task_name}' not found in label columns: {label_cols}")
-
-        label_list = []
-
+        inputs, labels = [], []
         for _, row in self.data.iterrows():
             smiles = row[smiles_col]
-            fp = self.smiles_to_fingerprint(smiles)
+            label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
+            fp = self.smiles_to_maccs(smiles)
             if fp is not None:
-                if task_name:
-                    label = row[task_name]
-                else:
-                    label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
-                label_list.append(label)
+                inputs.append(fp)
+                labels.append(label)
 
-        return label_list
+        return {"input": torch.stack(inputs), "label": labels}
+
+    def provideLabel(self, model_name, task_name=None):
+        with open("smile_config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+
+        task_cfg = config["datasets"][model_name]
+        smiles_col = task_cfg["smiles_col"]
+        label_cols = task_cfg["label_cols"]
+
+        labels = []
+        for _, row in self.data.iterrows():
+            smiles = row[smiles_col]
+            if self.smiles_to_maccs(smiles) is not None:
+                label = row[task_name] if task_name else (row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols]))
+                labels.append(label)
+        return labels
