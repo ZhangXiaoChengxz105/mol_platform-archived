@@ -26,6 +26,8 @@ if __name__ == "__main__":
     smile2 = "CN(C)C(=O)c1ccc(cc1)OC"
     smile3 = "[H]C([H])([H])C([H])([H])[H]"
     smiles_list = [smile1,smile2]
+
+    model_type = "GCN"
     #分类任务测试
     name = "BBBP"
     target = "p_np"
@@ -33,10 +35,10 @@ if __name__ == "__main__":
     test_prediction(name, target, smiles_list, model_type = "GCN") # true value: 1 for smile1
 
     # 回归任务测试
-    # name = "FreeSolv"
-    # target = "expt"
-    # print("\nRegression task test:")
-    # test_prediction(name, target, [smile2]) # true value: -11.01
+    name = "FreeSolv"
+    target = "expt"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2], "GCN") # true value: -11.01
 
     
     # name = "Lipo"
@@ -59,7 +61,7 @@ if __name__ == "__main__":
     # print("\nRegression task test:")
     # test_prediction(name, target, [smile2, smile3])
 
-    # name = "SIDER"
-    # target = "Blood and lymphatic system disorders"
-    # print("\nRegression task test:")
-    # test_prediction(name, target, [smile2, smile3])
+    name = "SIDER"
+    target = "Blood and lymphatic system disorders"
+    print("\nRegression task test:")
+    test_prediction(name, target, [smile2, smile3], "GCN")

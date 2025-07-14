@@ -24,7 +24,7 @@ def gnn_predict(name, target, smiles_list, model_type = "GIN"):
     
     validate_datasets_measure_names(name, target)
     
-    path = os.path.join(models_root, "GNN_finetune", f"GNN_{model_type}",f"{name}_{target}.pth")
+    path = os.path.join(models_root, "GNN_finetune", f"{model_type}",f"{name}_{target}.pth")
     print("Input path:", path)
     # 创建模型
     if os.path.exists(path):

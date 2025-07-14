@@ -6,9 +6,14 @@
     │   ├── GNN_model.py            # 模型核心实现
     │   ├── GNN_output.py           # 预测接口
     │   └── GNN_test.py
-    ├── GNN_finetune/               # 预训练参数
-    │   ├── BACE_Class.pth          # 各任务参数文件
-    │   └── ...
+
+	├── FP_finetune/         		# 预训练参数
+	│   ├── GNN_GIN/                # 模型参数文件夹
+	│   │   ├── BACE_Class.pth      # 各任务参数文件
+	│   │   └── ...
+	│   ├── GNN_GCN/
+	│   │   ├── BACE_Class.pth      # 各任务参数文件
+		...
 
 # **快速开始**
 ## 1. 数据准备
@@ -22,7 +27,7 @@ dir(dir(dir...(你的文件位置)))直到找到models上一级目录（根目�
 ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 ## 2. 初始化模型（自动加载对应任务的预训练参数）
-    GNN = GNN(task_name="BACE")  # 支持BBBP/HIV等GNN_finetune目录下的任务
+    GNN = GNN(task_name="BACE", modeltype = “GIN”)  # 支持BBBP/HIV等GNN_finetune目录下GIN或GCN模型的任务
 
 ## 3. 样本预测
     smile1 = "c12c3c(N4CCN(C)CC4)c(F)cc1c(c(C(O)=O)cn2C(C)CO3)=O"
@@ -32,7 +37,7 @@ ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     name = "BBBP"
     target = "p_np"
 
-    results = GNN_predict(name, target, smiles_list)
+    results = GNN_predict(name, target, smiles_list, model_type = 'GIN')
 ### 输出结构
     results = [
         {
@@ -48,5 +53,8 @@ ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
             "label":
         }
     ]
+### 模型对应关系
+model_type 类型：
+	MODEL_LIST = ['GIN', 'GCN']
 
 
