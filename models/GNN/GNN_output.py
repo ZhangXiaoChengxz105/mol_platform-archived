@@ -20,7 +20,7 @@ def gnn_predict(name, target, smiles_list, model_type = "GIN"):
         预测结果
     """
     if model_type not in MODEL_LIST:
-        raise ValueError(f"模型类型错误: {model_type},\n可选模型类型: {MODEL_LIST.keys()}")
+        raise ValueError(f"模型类型错误: {model_type},\n可选模型类型: {MODEL_LIST}")
     
     validate_datasets_measure_names(name, target)
     
