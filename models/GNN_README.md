@@ -8,10 +8,10 @@
     │   └── GNN_test.py
 
 	├── FP_finetune/         		# 预训练参数
-	│   ├── GNN_GIN/                # 模型参数文件夹
+	│   ├── GIN/                # 模型参数文件夹
 	│   │   ├── BACE_Class.pth      # 各任务参数文件
 	│   │   └── ...
-	│   ├── GNN_GCN/
+	│   ├── GCN/
 	│   │   ├── BACE_Class.pth      # 各任务参数文件
 		...
 
