@@ -67,6 +67,7 @@ class Runner(model_runner_interface):
 
         results = []
         for target in self.target_list:
+            print(f"[DEBUG] calling predict_func with: name={self.name}, target={target}, Model_type={self.Model_type} ")
             try:
                 # ✅ 根据是否传入 Model_type 动态构造调用
                 if self.Model_type is not None:
@@ -276,7 +277,7 @@ def get_latest_run_num(output):
 
 if __name__ == '__main__':
     args = parse_args()
-
+    grouped_results = defaultdict(list)
     # 参数拆分处理
     if args.model.strip().lower() == "all":
         Model_list = get_all_models()
@@ -284,7 +285,7 @@ if __name__ == '__main__':
         Model_list = [m.strip().lower() for m in args.model.split(',')]
     for model in Model_list:
         if "_" in args.model:
-            model, model_type = args.model.split("_", 1)
+            model, model_type = model.split("_", 1)
             model = model.strip().lower()
             model_type = model_type.strip().upper()
         else:
@@ -293,7 +294,7 @@ if __name__ == '__main__':
         if args.name.lower() == 'all':
             names_list  = get_all_datasets(f"{model}_{model_type}")
         else:
-            names_list = [args.name]
+            names_list =[s.strip() for s in args.name.split(',')]
         finalres = []
         for name in names_list:    
             ds = sequenceDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
@@ -357,7 +358,6 @@ if __name__ == '__main__':
             
         if finalres:
             # ⏬ 按 model_name_target 分组
-            grouped_results = defaultdict(list)
             for i, item in enumerate(finalres):
                 if "name" not in item or item["name"] is None:
                     print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
@@ -370,40 +370,40 @@ if __name__ == '__main__':
                     key = base_key
                 grouped_results[key].append(item)
 
-            output_dir = args.output if args.output else "output"
-            all_output_dir = os.path.join(project_root, 'results', output_dir)
-            output_dir = os.path.join(project_root, 'results', output_dir,runid)
+    output_dir = args.output if args.output else "output"
+    all_output_dir = os.path.join(project_root, 'results', output_dir)
+    output_dir = os.path.join(project_root, 'results', output_dir,runid)
 
-            
-            os.makedirs(output_dir, exist_ok=True)
+    
+    os.makedirs(output_dir, exist_ok=True)
 
-            written_files = []
+    written_files = []
 
-            for key, items in grouped_results.items():
-                output_path = os.path.join(output_dir, f"{key}.csv")
+    for key, items in grouped_results.items():
+        output_path = os.path.join(output_dir, f"{key}.csv")
 
-                # 写入 CSV 文件
-                with open(output_path, "w", encoding="utf-8", newline="") as f:
-                    writer = None
-                    for item in items:
-                        safe_item = make_json_safe(item)
-                        if writer is None:
-                            writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
-                            writer.writeheader()
-                        writer.writerow(safe_item)
+        # 写入 CSV 文件
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            writer = None
+            for item in items:
+                safe_item = make_json_safe(item)
+                if writer is None:
+                    writer = csv.DictWriter(f, fieldnames=list(safe_item.keys()))
+                    writer.writeheader()
+                writer.writerow(safe_item)
 
-                print(f"✅ Results written to {output_path}")
-                written_files.append(output_path)
+        print(f"✅ Results written to {output_path}")
+        written_files.append(output_path)
 
-            # ✅ 执行绘图（如果开启 eval 模式）
-            if args.eval:
-                if not args.plotprevisousruns:
-                    plot_csv_by_task(output_dir, save_dir=os.path.join(output_dir,args.plotpath))
-                else:
-                    plot_csv_by_task(all_output_dir, save_dir=os.path.join(output_dir,args.plotpath))
-
+    # ✅ 执行绘图（如果开启 eval 模式）
+    if args.eval:
+        if not args.plotprevisousruns:
+            plot_csv_by_task(output_dir, save_dir=os.path.join(output_dir,args.plotpath))
         else:
-            print("⚠️ No results to write.")
+            plot_csv_by_task(all_output_dir, save_dir=os.path.join(output_dir,args.plotpath))
+
+    else:
+        print("⚠️ No results to write.")
         
         # result = result[0]
         # print(result)
