@@ -1,77 +1,130 @@
-config = {
-    # 分类任务数据集
-    'Tox21': [
-        'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD',
-        'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53'
-    ],
-    'ClinTox': ['FDA_APPROVED', 'CT_TOX'],
-    'MUV': [
-        'MUV-466', 'MUV-548', 'MUV-600', 'MUV-644', 'MUV-652', 'MUV-689',
-        'MUV-692', 'MUV-712', 'MUV-713', 'MUV-733', 'MUV-737', 'MUV-810',
-        'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859'
-    ],
-    'SIDER': [
-        'Hepatobiliary disorders', 'Metabolism and nutrition disorders',
-        'Product issues', 'Eye disorders', 'Investigations',
-        'Musculoskeletal and connective tissue disorders',
-        'Gastrointestinal disorders', 'Social circumstances',
-        'Immune system disorders', 'Reproductive system and breast disorders',
-        'Neoplasms benign, malignant and unspecified (incl cysts and polyps)',
-        'General disorders and administration site conditions',
-        'Endocrine disorders', 'Surgical and medical procedures',
-        'Vascular disorders', 'Blood and lymphatic system disorders',
-        'Skin and subcutaneous tissue disorders',
-        'Congenital, familial and genetic disorders', 'Infections and infestations',
-        'Respiratory, thoracic and mediastinal disorders', 'Psychiatric disorders',
-        'Renal and urinary disorders',
-        'Pregnancy, puerperium and perinatal conditions',
-        'Ear and labyrinth disorders', 'Cardiac disorders',
-        'Nervous system disorders', 'Injury, poisoning and procedural complications'
-    ],
-    'BBBP': ['p_np'],
-    'HIV': ['HIV_active'],
-    'BACE': ['Class'],
-    
-    # 回归任务数据集
-    'FreeSolv': ['expt'],
-    'ESOL': ['measured log solubility in mols per litre'],
-    'Lipo': ['exp'],
-    'qm7': ['u0_atom'],
-    'qm8': [
-        'E1-CC2', 'E2-CC2', 'f1-CC2', 'f2-CC2', 'E1-PBE0', 'E2-PBE0',
-        'f1-PBE0', 'f2-PBE0', 'E1-CAM', 'E2-CAM', 'f1-CAM', 'f2-CAM'
-    ],
-    'qm9': ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
-}
-dataset_names = ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-regression_tasks = ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+import yaml
+import os
 
+class CheckUtils:
+    def __init__(self, name = "moleculenet"):
+        """
+        初始化CheckUtils类。
+        
+        参数:
+            config_path: 配置文件的路径，如果为None，则使用默认配置
+        """
+
+        self.config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name, "check_utils.yaml")
+        self._load_config()
+    
+    def _load_config(self):
+        """
+        从配置文件加载配置。
+        
+        参数:
+        """
+
+        if not os.path.exists(self.config_path):
+            raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
+        
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+        
+        # 提取配置数据
+        self.config = config_data.get('config', {})
+        self.dataset_names = config_data.get('dataset_names', [])
+        self.regression_tasks = config_data.get('regression_tasks', [])
+    
+    def get_config(self):
+        """
+        获取配置字典。
+        
+        返回:
+            包含所有数据集配置的字典
+        """
+        return self.config
+    
+    def get_datasets(self):
+        """
+        获取所有数据集名称。
+        
+        返回:
+            数据集名称列表
+        """
+        return self.dataset_names
+    
+    def get_datasets_measure_names(self, dataset_name):
+        """
+        获取MoleculeNet数据集的目标列表。
+        
+        参数:
+            dataset_name: 数据集名称
+            
+        返回:
+            对应数据集的目标列表
+            
+        异常:
+            ValueError: 如果提供了无效的数据集名称
+        """
+        try:
+            return self.config[dataset_name]
+        except KeyError:
+            raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {self.dataset_names}")
+    
+    def get_datasets_measure_numbers(self, dataset_name):
+        """
+        获取数据集目标的数量。
+        
+        参数:
+            dataset_name: 数据集名称
+            
+        返回:
+            目标数量
+        """
+        return len(self.get_datasets_measure_names(dataset_name))
+    
+    def get_datasets_task_type(self, dataset_name):
+        """
+        获取数据集的任务类型（回归或分类）。
+        
+        参数:
+            dataset_name: 数据集名称
+            
+        返回:
+            'regression'或'classification'
+        """
+        return 'regression' if dataset_name in self.regression_tasks else 'classification'
+    
+    def validate_datasets_measure_names(self, dataset_name, measure_name):
+        """
+        验证数据集和目标名称是否有效。
+        
+        参数:
+            dataset_name: 数据集名称
+            measure_name: 目标名称
+            
+        异常:
+            ValueError: 如果数据集名称或目标名称无效
+        """
+        if dataset_name not in self.dataset_names:
+            raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {self.dataset_names}")
+        if measure_name not in self.get_datasets_measure_names(dataset_name):
+            raise ValueError(f"数据集{dataset_name}无效的目标名称: {measure_name}, 获取对应属性失败\n支持的目标名称: {self.get_datasets_measure_names(dataset_name)}")
+
+# 为了向后兼容，提供全局实例
+default_utils = CheckUtils()
+
+# 为了向后兼容，提供全局函数
 def get_config():
-    return config
+    return default_utils.get_config()
 
 def get_datasets():
-    return dataset_names
+    return default_utils.get_datasets()
 
 def get_datasets_measure_names(dataset_name):
-    """
-    获取MoleculeNet数据集的目标列表。
-    如果提供了dataset_name，则返回对应数据集的目标列表；
-    否则返回包含所有数据集配置的字典。
-    """
-    # 如果指定了数据集名称，返回对应配置；否则返回完整配置
-    try:
-        return config[dataset_name]
-    except KeyError:
-        raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {dataset_names}")
+    return default_utils.get_datasets_measure_names(dataset_name)
 
 def get_datasets_measure_numbers(dataset_name):
-    return get_datasets_measure_names(dataset_name).__len__()
+    return default_utils.get_datasets_measure_numbers(dataset_name)
 
 def get_datasets_task_type(dataset_name):
-    return 'regression' if dataset_name in regression_tasks else 'classification'
+    return default_utils.get_datasets_task_type(dataset_name)
 
 def validate_datasets_measure_names(dataset_name, measure_name):
-    if dataset_name not in dataset_names:
-        raise ValueError(f"无效的数据集名称: {dataset_name}, 获取对应属性失败\n支持的数据集名称: {dataset_names}")
-    if measure_name not in get_datasets_measure_names(dataset_name):
-        raise ValueError(f"数据集{dataset_name}无效的目标名称: {measure_name}, 获取对应属性失败\n支持的目标名称: {get_datasets_measure_names(dataset_name)}")
+    return default_utils.validate_datasets_measure_names(dataset_name, measure_name)

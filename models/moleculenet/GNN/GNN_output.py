@@ -4,6 +4,8 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from GNN_data import smiles_to_graph
 from GNN_model import GNN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
@@ -42,7 +44,7 @@ def gnn_predict(name, target, smiles_list, model_type = "GIN"):
         pred = predictions[i].item()
         
         result = {
-            "smiles": smiles,
+            "data": smiles,
             "task": model.task,
             "prediction": pred,
             "label": None,

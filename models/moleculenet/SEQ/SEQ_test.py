@@ -11,7 +11,7 @@ def test_prediction(name, target, smiles_list):
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]
-        print(f"\nSMILES: {result['smiles']}")
+        print(f"\nSMILES: {result['data']}")
         print(f"Name: {name}")
         print(f"Target: {target}")
         print(f"Task: {result['task']}")

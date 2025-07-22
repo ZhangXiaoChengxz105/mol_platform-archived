@@ -3,11 +3,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import numpy as np
 from FP_data import smiles_to_fingerprint
 from FP_model import FP_NN
-from check_utils import get_datasets_measure_names, validate_datasets_measure_names
+from models.check_utils import get_datasets_measure_names, validate_datasets_measure_names
 from FP_model import FP_NN, FP_RF, FP_SVM, FP_XGB
 MODEL_LIST = ['NN', 'RF', 'SVM', 'XGB']
 MULTITASK_LIST = ['NN']
@@ -76,7 +77,7 @@ def fp_predict(name, target, smiles_list, model_type = 'NN'):
             pred_value = predictions[i]
         
         result = {
-            "smiles": smiles,
+            "data": smiles,
             "task": model.task,
             "prediction": pred_value,
             "label": None,

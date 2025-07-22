@@ -4,10 +4,11 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 models_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from SEQ_data import smiles_to_tokens
 from SEQ_model import SEQ as SEQ
-from check_utils import get_datasets_measure_names, validate_datasets_measure_names
+from models.check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
 def seq_predict(name, target, smiles_list):
     validate_datasets_measure_names(name, target)
@@ -45,7 +46,7 @@ def seq_predict(name, target, smiles_list):
             pred_value = pred_value[index]
         pred_value = pred_value.item()
         result = {
-            "smiles": smiles,
+            "data": smiles,
             "task": model.task,
             "prediction": pred_value,
             "label": None,

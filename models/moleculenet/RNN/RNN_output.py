@@ -3,6 +3,8 @@ import sys
 
 # 添加上级目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from RNN.RNN_data import smiles_to_tensor
 from RNN.RNN_model import RNNModel
 from check_utils import validate_datasets_measure_names, get_datasets_measure_names
@@ -47,7 +49,7 @@ def rnn_predict(name, target, smiles_list):
         pred_value = predictions[i][target_idx].item()
         
         result = {
-            "smiles": smiles,
+            "data": smiles,
             "task": model.task,
             "prediction": pred_value,
             "label": None,
