@@ -22,8 +22,9 @@ st.title("分子性质预测集成平台")
 st.markdown("根据模型类型自动加载数据集，仅在需要时显示额外参数，最终保存为配置文件并可供模型运行。")
 
 # ----------- 配置路径 -----------
+MODEL_PATH =os.path.join(project_root,'models')
 CONFIG_PATH = os.path.join(project_root,'result_analysis','config_run.yaml')
-MODEL_MAP_PATH = os.path.join(project_root,'models','model_datasets.yaml')
+# MODEL_MAP_PATH = os.path.join(project_root,'models','model_datasets.yaml')
 RUN_SCRIPT_PATH = os.path.join(project_root,'result_analysis','run_all.py')
 HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history,json')
 
@@ -115,17 +116,11 @@ def get_datasets_for_model(model_list, model_map):
     return sorted(list(common_datasets))
 
 
-# ----------- 从 model_dataset_map.yaml 获取数据集列表 -----------
-@st.cache_data
-def load_model_map(path=MODEL_MAP_PATH):
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f).get("models", {})
 
-model_map = load_model_map()
-model_options = list(model_map.keys())
-model_options_with_all = model_options + ["all"]
 
 # ----------- 初始化 session_state -----------
+if "selected_model_field" not in st.session_state:
+    st.session_state["selected_model_field"] = None
 if "selected_models" not in st.session_state:
     st.session_state["selected_models"] = []
 if "selected_datasets" not in st.session_state:
@@ -134,18 +129,49 @@ if "eval" not in st.session_state:
     st.session_state["eval"] = True
 if "smiles_list" not in st.session_state:
     st.session_state["smiles_list"] = "random200"
-# ----------- 记录模型选择前的值 -----------
-def on_model_change():
+
+# ----------- 当 model_field 变化时，重置所有相关选择 -----------
+def on_model_field_change():
+    st.session_state["selected_models"] = []
     st.session_state["selected_datasets"] = []
     st.session_state["selected_tasks"] = []
+    st.session_state["_last_selected_dataset"] = None
+    
+model_field_options = ["moleculenet"]  # 按你的需求可扩展或自动加载
 
-# ✅ 多选控件（使用 session 保存 + 回调重置）
-st.multiselect(
-    "模型类型 (model)",
-    options=model_options_with_all,
-    key="selected_models",
-    on_change=on_model_change
+# ✅ 添加模型特征字段选择控件
+st.selectbox(
+    "模型输入特征类型 (model_field)",
+    options=model_field_options,
+    key="selected_model_field",
+    on_change=on_model_field_change
 )
+    
+# ----------- 从 model_dataset_map.yaml 获取数据集列表 -----------
+@st.cache_data
+def load_model_map(modelfield,path=MODEL_PATH):
+    new_path = os.path.join(path,modelfield,'model_datasets.yaml')
+    with open(new_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f).get("models", {})
+model_field = st.session_state["selected_model_field"]
+if model_field:
+    model_map = load_model_map(model_field)
+    model_options = list(model_map.keys())
+    model_options_with_all = model_options + ["all"]
+    # ----------- 记录模型选择前的值 -----------
+
+
+    def on_model_change():
+        st.session_state["selected_datasets"] = []
+        st.session_state["selected_tasks"] = []
+
+    # ✅ 多选控件（使用 session 保存 + 回调重置）
+    st.multiselect(
+        "模型类型 (model)",
+        options=model_options_with_all,
+        key="selected_models",
+        on_change=on_model_change
+    )
 
 if "all" in st.session_state["selected_models"]:
     model = model_options
@@ -229,6 +255,7 @@ smiles_list = st.text_input(
 if st.button("运行模型配置并保存配置文件"):
     fields_to_convert = ["model", "name", "target_list"]
     config = load_config()
+    config["user_argument"] = st.session_state["selected_model_field"]
     config["model"] = st.session_state["selected_models"]
     config["name"] = name
     config["target_list"] = target_list
@@ -250,6 +277,7 @@ if st.button("运行模型配置并保存配置文件"):
         history_record = {
             "timestamp": datetime.now().isoformat(),
             "run_id": run_id,
+            "model_argument": config["user_argument"],
             "model": config["model"],
             "dataset": config["name"],
             "task": config["target_list"],

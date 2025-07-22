@@ -44,16 +44,18 @@ def make_json_safe(obj):
         return obj
 
 class Runner(model_runner_interface):
-    def __init__(self, model, name, target_list, smiles_list, Model_type=None):
+    def __init__(self, userarg,model, name, target_list, smiles_list, Model_type=None):
         self.model = model
         self.name = name
         self.target_list = target_list
         self.smiles_list = smiles_list
-        self.Model_type = Model_type 
+        self.Model_type = Model_type
+        self.userarg = userarg
 
     def run(self):
         model_id = self.model.strip().lower()
-        model_path = os.path.join(project_root, 'models', model_id.upper())
+        model_path = os.path.join(project_root, 'models',self.userarg, model_id.upper())
+        print(model_path)
 
         if model_path not in sys.path:
             sys.path.append(model_path)
@@ -145,6 +147,7 @@ def parse_args():
                         help="Directory to save plotted images (default: 'plots')")
     parser.add_argument('--plotprevisousruns', type=lambda x: x.lower() == 'true', default=False,
                         help="Whether to plot previous runs (True/False)")
+    parser.add_argument('--user_argument',type=str,help = 'user specified argument for model calssification')
     # parser.add_argument('--Model_type', type = str, required = False, help = 'specific arugment for fp model type')
     
     return parser.parse_args()
@@ -220,7 +223,7 @@ def get_all_targets_and_smiles(name,data):
     
     return smiles_col, label_cols
     
-def get_all_datasets(model: str):
+def get_all_datasets(model: str,):
     # 设置路径
     config_path = os.path.join(project_root, "models", "model_datasets.yaml")
 
@@ -280,8 +283,7 @@ if __name__ == '__main__':
     grouped_results = defaultdict(list)
     # 参数拆分处理
     if args.model.strip().lower() == "all":
-        Model_list = get_all_models()
-        print(Model_list)
+        Model_list = get_all_models(args.user_argument)
     else:
         Model_list = [m.strip().lower() for m in args.model.split(',')]
     for model in Model_list:
@@ -294,10 +296,7 @@ if __name__ == '__main__':
             model_type = None
         print(model)
         print(model_type)
-        if args.name.lower() == 'all':
-            names_list  = get_all_datasets(f"{model}_{model_type}")
-        else:
-            names_list =[s.strip() for s in args.name.split(',')]
+        names_list =[s.strip() for s in args.name.split(',')]
         finalres = []
         for name in names_list:    
             ds = sequenceDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
@@ -339,7 +338,7 @@ if __name__ == '__main__':
             else:
                 smiles_list = [s.strip() for s in args.smiles_list.split(',')]
             if model_type:
-                runner = Runner(model, name, target_list, smiles_list,model_type)
+                runner = Runner(args.user_argument,model, name, target_list, smiles_list,model_type)
                 result = runner.run()
                 for i in range(len(result)):
                     subresult = result[i]
@@ -365,13 +364,13 @@ if __name__ == '__main__':
                 if "name" not in item or item["name"] is None:
                     print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
             for item in finalres:
-                runid = get_latest_run_num(args.output) if args.output else "run1"
                 base_key = f"{item['model']}_{item['name']}_{item['target']}"
                 if 'error' in item and item['error']:
                     key = f"{base_key}_error"
                 else:
                     key = base_key
                 grouped_results[key].append(item)
+            runid = get_latest_run_num(args.output) if args.output else "run1"
 
     output_dir = args.output if args.output else "output"
     all_output_dir = os.path.join(project_root, 'results', output_dir)
