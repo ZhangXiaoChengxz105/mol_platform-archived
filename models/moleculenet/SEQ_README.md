@@ -1,5 +1,5 @@
 # **模块结构**
-    models/
+    moleculenet/
     ├── SEQ/                        # 模型核心文件
     │   ├── ginet_finetune.py       # 模型训练入口
     │   ├── SEQ_data.py             # 数据预处理
@@ -12,10 +12,10 @@
 
 # **快速开始**
 ## 1. 数据准备
-按照模块结构，解压SEQ_finetune至models文件夹中
+按照模块结构，解压SEQ_finetune至moleculenet文件夹中
 
 ### 推荐使用如下命令添加路径：
-from models.SEQ.SEQ_output import SEQ_predict  # 根据自己的路径调整
+from models.moleculenet.SEQ.SEQ_output import SEQ_predict  # 根据自己的路径调整
 dir(dir(dir...(你的文件位置)))直到找到models上一级目录（根目录）
 ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -32,9 +32,15 @@ ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 ### 输出结构
     results = [
         {
-            "smiles": ,
+            "data": smile1,
             "task": ,
             "prediction": ,
             "label":
         },
+        {
+            "data": smile2,
+            "task": ,
+            "prediction": ,
+            "label":
+        }
     ]
