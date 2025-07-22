@@ -281,6 +281,7 @@ if __name__ == '__main__':
     # 参数拆分处理
     if args.model.strip().lower() == "all":
         Model_list = get_all_models()
+        print(Model_list)
     else:
         Model_list = [m.strip().lower() for m in args.model.split(',')]
     for model in Model_list:
@@ -289,8 +290,10 @@ if __name__ == '__main__':
             model = model.strip().lower()
             model_type = model_type.strip().upper()
         else:
-            model = args.model.strip().lower()
+            model = model.strip().lower()
             model_type = None
+        print(model)
+        print(model_type)
         if args.name.lower() == 'all':
             names_list  = get_all_datasets(f"{model}_{model_type}")
         else:
