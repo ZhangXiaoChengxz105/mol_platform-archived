@@ -91,7 +91,7 @@ class Runner(model_runner_interface):
                 results.append({
                     "model": f"{self.model}_{self.Model_type}" if self.Model_type else self.model,
                     "target": target,
-                    "smiles": self.smiles_list,
+                    "data": self.smiles_list,
                     "error": str(e),
                     "name": self.name
                 })
@@ -154,7 +154,7 @@ def parse_args():
 
 def lookup(item,data):
     model = item['model']
-    smiles= item['smiles']
+    smiles= item['data']
     task = item['task']
     name = item['name']
     target= item['target']
@@ -299,7 +299,7 @@ if __name__ == '__main__':
         names_list =[s.strip() for s in args.name.split(',')]
         finalres = []
         for name in names_list:    
-            ds = sequenceDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
+            ds = BaseDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
             ds.loadData()
             data = ds.provideSmilesAndLabel(name)
             tmpsm, tmptg = get_all_targets_and_smiles(name, data)

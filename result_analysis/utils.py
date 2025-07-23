@@ -38,7 +38,7 @@ def get_save_path(base_dir, model, dataset, filename, is_model_analysis=False):
     os.makedirs(subfolder, exist_ok=True)
     return os.path.join(subfolder, filename)
 
-def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob, threshold=0.5):
+def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob,model_dataset_metrics_classification,model,dataset,target, threshold=0.5):
     #对单个 classification task进行指标计算和可视化
     y_true = np.array(y_true)
     y_pred_prob = np.array(y_pred_prob)
@@ -67,6 +67,14 @@ def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob, threshold
         f1 = f1_score(y_true, y_pred, zero_division=0)
         auc = roc_auc_score(y_true, y_pred_prob)
         mcc = matthews_corrcoef(y_true, y_pred)
+        model_dataset_metrics_classification[model][dataset][target]["Macro Accuracy"] = acc
+        model_dataset_metrics_classification[model][dataset][target]["Macro Precision"] = precision
+        model_dataset_metrics_classification[model][dataset][target]["Macro Recall"] = recall
+        model_dataset_metrics_classification[model][dataset][target]["Macro F1"] = f1
+        model_dataset_metrics_classification[model][dataset][target]["Macro AUC"] = auc
+        model_dataset_metrics_classification[model][dataset][target]["Macro MCC"] = mcc
+
+        
     except Exception:
         acc = precision = recall = f1 = auc = mcc = float('nan')
 
@@ -85,6 +93,7 @@ def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob, threshold
         horizontalalignment='left',
         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
     )
+    return(model_dataset_metrics_classification)
 
 def finalize_plot_macro_metrics(task_outputs, threshold=0.5):
     accs, precisions, recalls, f1s, aucs, mccs = [], [], [], [], [], []
@@ -131,9 +140,10 @@ def plot_macro_metrics_on_ax(ax, metrics_dict):
     )
 
 def update_classification_aggregates(classification_group_data, classification_model_data,
-                                     classification_data, save_dir, get_save_path, model_dataset_metrics_dict):
+                                     classification_data, save_dir, get_save_path):
     
-    def compute_and_plot_macro(model, dataset, values, related_keys, title, save_path, write_plot=True):
+    def compute_and_plot_macro(related_keys, title, save_path, write_plot=True):
+        #这是
         task_outputs = [
             (list(zip(*classification_data[k])) if len(classification_data[k]) > 0 else ([], []))
             for k in related_keys
@@ -141,10 +151,10 @@ def update_classification_aggregates(classification_group_data, classification_m
         metrics = finalize_plot_macro_metrics(task_outputs)
 
         # ✅ 写入 metrics dict
-        if dataset == "all":
-            model_dataset_metrics_dict[model]["all"] = metrics
-        else:
-            model_dataset_metrics_dict[model][dataset] = metrics
+        # if dataset == "all":
+        #     model_dataset_metrics_dict[model]["all"] = metrics
+        # else:
+        #     model_dataset_metrics_dict[model][dataset] = metrics
 
         # ✅ 可选绘图（只有多个任务时才画）
         if not write_plot:
@@ -195,7 +205,7 @@ def update_classification_aggregates(classification_group_data, classification_m
         related_keys = [k for k in classification_data if k.startswith(f"{model}::{dataset}::")]
         save_path = get_save_path(save_dir, model, dataset, f"{dataset}_classification_all_targets.png")
         do_plot = len(set(k.split("::")[2] for k in related_keys)) > 1
-        compute_and_plot_macro(model, dataset, values, related_keys, f"{key} (Macro Avg)", save_path, write_plot=do_plot)
+        compute_and_plot_macro(related_keys, f"{key} (Macro Avg)", save_path, write_plot=do_plot)
 
     # ✅ Per-model
     for key, values in classification_model_data.items():
@@ -203,9 +213,9 @@ def update_classification_aggregates(classification_group_data, classification_m
         related_keys = [k for k in classification_data if k.startswith(f"{model}::")]
         save_path = get_save_path(save_dir, model, None, f"{model}_classification_all_datasets.png", is_model_analysis=True)
         do_plot = len(set(k.split("::")[1] for k in related_keys)) > 1
-        compute_and_plot_macro(model, "all", values, related_keys, f"{model} (All Datasets Macro Avg)", save_path, write_plot=do_plot)
+        compute_and_plot_macro( related_keys, f"{model} (All Datasets Macro Avg)", save_path, write_plot=do_plot)
 
-    return model_dataset_metrics_dict
+    # return model_dataset_metrics_dict
 
 def plot_csv_by_task(folder_path, save_dir="plots"):
     os.makedirs(save_dir, exist_ok=True)
@@ -216,8 +226,8 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
     classification_group_data = defaultdict(list)
     regression_model_data = defaultdict(list)
     classification_model_data = defaultdict(list)
-    model_dataset_metrics_classification = defaultdict(lambda: defaultdict(list))
-    model_dataset_metrics_regression = defaultdict(lambda: defaultdict(list))
+    model_dataset_metrics_classification = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+    model_dataset_metrics_regression = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
 
     folder_path = Path(folder_path)
@@ -349,7 +359,7 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.9)
             )
         else:
-            finalize_plot_classification_with_metrics(plt.gca(), y_numeric, pred_probs)
+            model_dataset_metrics_classification = finalize_plot_classification_with_metrics(plt.gca(), y_numeric, pred_probs,model_dataset_metrics_classification,model,dataset,target)
             classification_group_data[f"{model}::{dataset}"].extend(zip(y_numeric, pred_probs))
             classification_model_data[model].extend(zip(y_numeric, pred_probs))
         
@@ -363,7 +373,15 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
     for key, values in regression_data.items():
         model, dataset, target = key.split("::")
         save_path = get_save_path(save_dir, model, dataset, f"{dataset}_{target}_regression.png")
-        should_include = plot_regression_with_metrics(values, save_path, title_suffix=key)
+        should_include, model_dataset_metrics_regression = plot_regression_with_metrics(
+        values=values,
+        save_path=save_path,
+        title_suffix=key,
+        model=model,
+        dataset=dataset,
+        target=target,
+        model_dataset_metrics_regression=model_dataset_metrics_regression
+        )        
         if should_include:
             regression_group_data[f"{model}::{dataset}"].extend(values)
             regression_model_data[model].extend(values)
@@ -378,7 +396,7 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
                 for k in related_keys
                 ]
         metrics = finalize_macro_regression_metrics(task_outputs)
-        model_dataset_metrics_regression[model][dataset] = metrics
+        # model_dataset_metrics_regression[model][dataset] = metrics
         if len(related_keys) > 1:
             save_path = get_save_path(save_dir, model, dataset, f"{dataset}_regression_all_targets.png")
             plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (Macro Avg)",external_metrics=metrics)
@@ -392,20 +410,19 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
                 for k in related_keys
                 ]
         metrics = finalize_macro_regression_metrics(task_outputs)
-        model_dataset_metrics_regression[model]["all"] = metrics
+        # model_dataset_metrics_regression[model]["all"] = metrics
         if len(set(k.split("::")[1] for k in related_keys)) > 1:
             save_path = get_save_path(save_dir, key, None, f"{key}_regression_all_datasets.png", is_model_analysis=True)
             plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (All Datasets Macro Avg)",external_metrics=metrics)
 
-    model_dataset_metrics_classification = update_classification_aggregates(
+    update_classification_aggregates(
         classification_group_data=classification_group_data,
         classification_model_data=classification_model_data,
         classification_data=classification_data,
         save_dir=save_dir,
         get_save_path=get_save_path,
-        model_dataset_metrics_dict=model_dataset_metrics_classification
-        
-    )
+    )   
+    model_dataset_metrics_classification,model_dataset_metrics_regression = aggregate_metrics(model_dataset_metrics_classification,model_dataset_metrics_regression)
     plot_analysis_metrics_with_values(
         model_dataset_metrics_classification=model_dataset_metrics_classification,
         model_dataset_metrics_regression=model_dataset_metrics_regression,
@@ -460,7 +477,7 @@ def plot_macro_regression_on_ax(ax, metrics_dict):
 
 # Regression plot function with metrics
 
-def plot_regression_with_metrics(values, save_path, title_suffix="", external_metrics=None):
+def plot_regression_with_metrics(values, save_path, title_suffix="", model='',dataset ='',target = '',external_metrics=None,model_dataset_metrics_regression=''):
     if not values:
         print(f"⚠️ Empty input to plot: {save_path}")
         return False
@@ -486,7 +503,7 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
         plt.savefig(save_path, dpi=300)
         plt.close()
         print(f"📉 No valid data for regression plot: {save_path}")
-        return False
+        return False,model_dataset_metrics_regression
 
     # 正常散点图 + 拟合线
     sns.scatterplot(x=truths, y=preds, alpha=0.6, edgecolor='w', linewidth=0.5)
@@ -511,7 +528,7 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
         plt.savefig(save_path, dpi=300)
         plt.close()
         print(f"⚠️ Skipped eval due to invalid data: {save_path}")
-        return False
+        return False,model_dataset_metrics_regression
 
     # ✅ 强制使用外部提供的指标
     if external_metrics is not None:
@@ -527,6 +544,13 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
             "Macro R2": r2,
             "Total Samples": count
         }
+        no_count ={
+            "Macro MSE": mse,
+            "Macro MAE": mae,
+            "Macro R2": r2        
+        }
+        model_dataset_metrics_regression[model][dataset][target] = no_count
+        
 
     # 可视化 metrics
     text = (
@@ -546,7 +570,41 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", external_me
     plt.savefig(save_path, dpi=300)
     plt.close()
     print(f"📈 Saved regression plot: {save_path}")
-    return True
+    return True,model_dataset_metrics_regression
+
+
+def aggregate_metrics(model_dataset_metrics_classification, model_dataset_metrics_regression):
+    def average_metrics(metric_list):
+        return float(np.mean(metric_list)) if metric_list else float('nan')
+
+    def process_dict(input_dict):
+        result = defaultdict(lambda: defaultdict(dict))
+
+        for model, dataset_dict in input_dict.items():
+            for dataset, target_dict in dataset_dict.items():
+                metrics_accumulator = defaultdict(list)
+                for target, metrics in target_dict.items():
+                    for metric, value in metrics.items():
+                        metrics_accumulator[metric].append(value)
+
+                for metric, values in metrics_accumulator.items():
+                    result[model][dataset][metric] = average_metrics(values)
+
+        # 添加 model -> 'all' 聚合所有 dataset
+        for model, dataset_metrics in result.items():
+            all_metrics_accumulator = defaultdict(list)
+            for dataset, metrics in dataset_metrics.items():
+                for metric, value in metrics.items():
+                    all_metrics_accumulator[metric].append(value)
+            for metric, values in all_metrics_accumulator.items():
+                result[model]["all"][metric] = average_metrics(values)
+
+        return result
+
+    classification_macro = process_dict(model_dataset_metrics_classification)
+    regression_macro = process_dict(model_dataset_metrics_regression)
+
+    return classification_macro, regression_macro
 
 def plot_analysis_metrics_with_values(model_dataset_metrics_classification, model_dataset_metrics_regression, save_dir):
     def draw_plot(data_dict, metrics_keys, filename_prefix, ylabel):

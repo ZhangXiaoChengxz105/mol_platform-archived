@@ -129,6 +129,16 @@ if "eval" not in st.session_state:
     st.session_state["eval"] = True
 if "smiles_list" not in st.session_state:
     st.session_state["smiles_list"] = "random200"
+if "smiles_input_mode" not in st.session_state:
+    st.session_state["smiles_input_mode"] = "auto_eval"  # 可选: auto_eval, file_upload, manual_input
+if "smiles_text_input" not in st.session_state:
+    st.session_state["smiles_text_input"] = ""
+if "smiles_file" not in st.session_state:
+    st.session_state["smiles_file"] = None
+if "smiles_eval_mode" not in st.session_state:
+    st.session_state["smiles_eval_mode"] = "random"
+if "smiles_eval_num" not in st.session_state:
+    st.session_state["smiles_eval_num"] = 200
 
 # ----------- 当 model_field 变化时，重置所有相关选择 -----------
 def on_model_field_change():
@@ -238,7 +248,7 @@ if "name" in locals() and name:
             target_list = "all"
 
 
-# ----------- smiles_list 输入框 -----------
+# ----------- evaluation 输入框 -----------
 if "eval" not in st.session_state:
     st.session_state["eval"] = True
 eval = st.checkbox("是否评估模型并绘图 (eval)", key="eval")
@@ -246,10 +256,71 @@ eval = st.checkbox("是否评估模型并绘图 (eval)", key="eval")
 # ----------- smiles_list 输入框 -----------
 if "smiles_list" not in st.session_state:
     st.session_state["smiles_list"] = "random200"
-smiles_list = st.text_input(
-    "SMILES 列表 (支持 random<number>、all 或逗号分隔字符串)",
-    key="smiles_list"
+st.markdown("### 选择 SMILES 输入方式")
+mode_display_to_internal = {
+    "自动评估": "auto_eval",
+    "上传文件": "file_upload",
+    "手动输入": "manual_input"
+}
+mode_internal_to_display = {v: k for k, v in mode_display_to_internal.items()}
+
+# 控件：选择模式（只读，不直接改 session_state）
+selected_mode_display = st.radio(
+    "请选择一种方式",
+    options=list(mode_display_to_internal.keys()),
+    index=list(mode_display_to_internal.values()).index(st.session_state["smiles_input_mode"])
 )
+
+# 将 radio 控件结果写入 session
+if mode_display_to_internal[selected_mode_display] != st.session_state["smiles_input_mode"]:
+    st.session_state["smiles_input_mode"] = mode_display_to_internal[selected_mode_display]
+    st.rerun()
+
+# 三种模式分别处理
+mode = st.session_state["smiles_input_mode"]
+
+if mode == "auto_eval":
+    smiles_eval_mode = st.selectbox(
+        "选择评估模式",
+        ["random", "all"],
+        index=["random", "all"].index(st.session_state["smiles_eval_mode"])
+    )
+
+    if smiles_eval_mode != st.session_state["smiles_eval_mode"]:
+        st.session_state["smiles_eval_mode"] = smiles_eval_mode
+        st.rerun()
+
+    if st.session_state["smiles_eval_mode"] == "random":
+        smiles_eval_num = st.number_input("请输入要随机选择的数量", min_value=1, value=st.session_state["smiles_eval_num"])
+        if smiles_eval_num != st.session_state["smiles_eval_num"]:
+            st.session_state["smiles_eval_num"] = smiles_eval_num
+            st.session_state["smiles_list"] = f"random{smiles_eval_num}"
+        else:
+            st.session_state["smiles_list"] = f"random{st.session_state['smiles_eval_num']}"
+    else:
+        st.session_state["smiles_list"] = "all"
+
+elif mode == "file_upload":
+    uploaded_file = st.file_uploader("上传包含 SMILES 的 .txt 或 .csv 文件", type=["txt", "csv"])
+    if uploaded_file is not None:
+        st.session_state["smiles_file"] = uploaded_file
+        if uploaded_file.name.endswith(".txt"):
+            content = uploaded_file.read().decode("utf-8")
+            lines = [line.strip() for line in content.splitlines() if line.strip()]
+            st.session_state["smiles_list"] = lines
+        elif uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+            col = st.selectbox("选择 SMILES 所在列", df.columns)
+            smiles = df[col].dropna().astype(str).tolist()
+            st.session_state["smiles_list"] = smiles
+
+elif mode == "manual_input":
+    text = st.text_area("请输入逗号分隔的 SMILES", value=st.session_state["smiles_text_input"])
+    if text != st.session_state["smiles_text_input"]:
+        st.session_state["smiles_text_input"] = text
+        smiles = [s.strip() for s in text.split(",") if s.strip()]
+        st.session_state["smiles_list"] = smiles
+
 
 # ----------- 运行按钮 -----------
 if st.button("运行模型配置并保存配置文件"):
@@ -260,7 +331,11 @@ if st.button("运行模型配置并保存配置文件"):
     config["name"] = name
     config["target_list"] = target_list
     config["eval"] = st.session_state["eval"]
-    config["smiles_list"] = st.session_state["smiles_list"]
+    smiles_val = st.session_state.get("smiles_list", "")
+    if isinstance(smiles_val, list):
+        config["smiles_list"] = ",".join(smiles_val)
+    else:
+        config["smiles_list"] = smiles_val
     config = list_to_csv_fields(config, fields_to_convert)
 
     save_config(config)
