@@ -260,6 +260,8 @@ class Normalizer(object):
         self.mean = state_dict['mean']
         self.std = state_dict['std']
 
+
+# GCN part
 import math
 from torch_geometric.utils.num_nodes import maybe_num_nodes
 from torch.nn import Parameter

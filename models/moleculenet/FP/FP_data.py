@@ -12,7 +12,7 @@ from rdkit.Chem import AllChem
 from pubchemfp import GetPubChemFPs  # 从pubchemfp.py导入指纹生成函数
 
 
-def smiles_to_fingerprint(smiles_list, fp_type='mixed'):
+def smiles_to_fingerprint(smiles_list):
     """完全匹配原始MoleData的处理方式"""
     fp_list = []
     valid_smiles = []
@@ -26,16 +26,13 @@ def smiles_to_fingerprint(smiles_list, fp_type='mixed'):
             print(f"过滤无效SMILES: {smiles}")
             continue
             
-        # 生成指纹（与FPN类一致）
-        if fp_type == 'mixed':
-            fp_maccs = list(AllChem.GetMACCSKeysFingerprint(mol))
-            fp_phaErGfp = list(AllChem.GetErGFingerprint(
-                mol, fuzzIncrement=0.3, maxPath=21, minPath=1
-            ))
-            fp_pubcfp = list(GetPubChemFPs(mol))
-            fp = fp_maccs + fp_phaErGfp + fp_pubcfp
-        else:
-            fp = list(AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024))
+        # dim = 1489
+        fp_maccs = list(AllChem.GetMACCSKeysFingerprint(mol))
+        fp_phaErGfp = list(AllChem.GetErGFingerprint(
+            mol, fuzzIncrement=0.3, maxPath=21, minPath=1
+        ))
+        fp_pubcfp = list(GetPubChemFPs(mol))
+        fp = fp_maccs + fp_phaErGfp + fp_pubcfp
         
         fp_list.append(fp)
         valid_smiles.append(smiles)  # 保留原始SMILES
