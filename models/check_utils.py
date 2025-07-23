@@ -2,7 +2,7 @@ import yaml
 import os
 
 class CheckUtils:
-    def __init__(self, name = "moleculenet"):
+    def __init__(self, dataset_name = "moleculenet"):
         """
         初始化CheckUtils类。
         
@@ -10,7 +10,7 @@ class CheckUtils:
             config_path: 配置文件的路径，如果为None，则使用默认配置
         """
 
-        self.config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name, "check_utils.yaml")
+        self.config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), dataset_name, "check_utils.yaml")
         self._load_config()
     
     def _load_config(self):
