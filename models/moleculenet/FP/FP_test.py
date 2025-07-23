@@ -2,12 +2,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from FP_output import fp_predict
+from FP_output import predict
 
 def test_prediction(name, target, smiles_list, model_type = 'NN'):
     """测试FP预测"""
     print(f"\n测试 {name} 数据集, 目标: {target}, 模型类型: {model_type}")
-    results = fp_predict(name, target, smiles_list, model_type = model_type)
+    results = predict(name, target, smiles_list, model_type = model_type)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]

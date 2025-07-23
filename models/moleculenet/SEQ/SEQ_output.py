@@ -12,7 +12,7 @@ from SEQ_data import smiles_to_tokens
 from SEQ_model import SEQ as SEQ
 from models.check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
-def seq_predict(name, target, smiles_list):
+def predict(name, target, smiles_list, model_type = None):
     validate_datasets_measure_names(name, target)
     # 构建绝对路径（假设models在项目根目录下）
     if name not in ["Tox21", "ClinTox","MUV","SIDER"]:

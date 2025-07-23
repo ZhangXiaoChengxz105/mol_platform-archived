@@ -13,7 +13,7 @@ from GNN_model import GNN
 from check_utils import get_datasets_measure_names, validate_datasets_measure_names
 
 MODEL_LIST = ['GIN', 'GCN']
-def gnn_predict(name, target, smiles_list, model_type = "GIN"):
+def predict(name, target, smiles_list, model_type = "GIN"):
     """
     简单的GNN预测接口
     Args:

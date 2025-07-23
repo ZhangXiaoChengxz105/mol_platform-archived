@@ -2,11 +2,11 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from RNN.RNN_output import rnn_predict
+from RNN.RNN_output import predict
 
-def test_prediction(name, target, smiles_list):
+def test_prediction(name, target, smiles_list, model_type = None):
     print(f"\n测试 {name} 数据集, 目标: {target}")
-    results = rnn_predict(name, target, smiles_list)
+    results = predict(name, target, smiles_list, model_type)
     print(f"\n{name}_{target}_results:")
     for i in range(len(smiles_list)):
         result = results[i]

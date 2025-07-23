@@ -11,7 +11,7 @@ from RNN.RNN_data import smiles_to_tensor
 from RNN.RNN_model import RNNModel
 from check_utils import validate_datasets_measure_names, get_datasets_measure_names
 
-def rnn_predict(name, target, smiles_list):
+def predict(name, target, smiles_list, model_type = None):
     """
     RNN预测主函数
     :param name: 数据集名称（转换为小写）
