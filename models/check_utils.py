@@ -29,7 +29,7 @@ class CheckUtils:
         # 提取配置数据
         self.config = config_data.get('config', {})
         self.dataset_names = config_data.get('dataset_names', [])
-        self.regression_tasks = config_data.get('regression_tasks', [])
+        self.regression_datasets = config_data.get('regression_datasets', [])
     
     def get_config(self):
         """
@@ -89,7 +89,7 @@ class CheckUtils:
         返回:
             'regression'或'classification'
         """
-        return 'regression' if dataset_name in self.regression_tasks else 'classification'
+        return 'regression' if dataset_name in self.regression_datasets else 'classification'
     
     def validate_datasets_measure_names(self, dataset_name, measure_name):
         """
