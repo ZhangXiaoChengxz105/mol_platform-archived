@@ -2,17 +2,29 @@
 ## **Formatted workflow requirements**
 To fit the structure we define
 you must have 3 core files: *_data.py, *_model.py, *_output.py, and paremeter files
-which follows following structure ("model_name" is the name of your model you set)
+which follows following structure ("model_name" is the name of model you set)
 
-    model_name.zip/
+    model.zip/
     ├── model_name/                  # model workflow folder
     |    ├── model_name_data.py      # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
     |    ├── model_name_model.py     # model core implementation (ex: fingerprints to predict values)
     |    ├── model_name_output.py    # formalize the model output (ex: pred values to formatted results)
     |    ├── ...
-    |    ├── model_name_finetune/    # pretrained parameters folder
+    ├── model_name_finetune/    # pretrained parameters folder
     |    ├── ...
-    |    ├── model_name_README.md    # model description
+    ├── model_name_README.md    # model description
+
+an example structure from moleculenet:
+
+    fp/
+    ├── fp_data.py
+    ├── fp_model.py
+    ├── fp_output.py
+    ├── fp_test.py      # dev test file
+    ├── pubchemfp.py    # other related files
+    fp_finetune/
+    ├── ...
+    fp_README.md
 
 and config files:
 
