@@ -14,7 +14,7 @@ except NameError:
     project_root = pathlib.Path(os.getcwd()).resolve().parents[0]
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
-from models.check_utils import get_datasets_measure_names
+from models.check_utils import get_datasets_measure_names,CheckUtils
 
 
 st.set_page_config(layout="wide")
@@ -27,6 +27,7 @@ CONFIG_PATH = os.path.join(project_root,'result_analysis','config_run.yaml')
 # MODEL_MAP_PATH = os.path.join(project_root,'models','model_datasets.yaml')
 RUN_SCRIPT_PATH = os.path.join(project_root,'result_analysis','run_all.py')
 HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history,json')
+MODEL_DATASET_PATH = os.path.join(MODEL_PATH,'models.yaml')
 
 # ----------- 加载 config.yaml -----------
 @st.cache_data
@@ -68,7 +69,7 @@ def display_images_recursively(base_dir):
                     image_path = os.path.join(root, image)
                     col = cols[idx % 2]  # 交替写入两个列
                     with col:
-                        st.image(image_path, caption=image, use_column_width="always")
+                        st.image(image_path, caption=image, use_container_width="always")
 
                 
 def get_latest_run_folder(base="results"):
@@ -78,6 +79,36 @@ def get_latest_run_folder(base="results"):
         latest_run = f"run{max(run_numbers)}"
         return latest_run,os.path.join(base, latest_run)
     return None
+
+def get_submodel(model_type, model):
+    with open(MODEL_DATASET_PATH, 'r') as f:
+        data = yaml.safe_load(f)
+    
+    try:
+        return list(data[model_type]['models'][model].keys())
+    except (KeyError, AttributeError):
+        return []
+
+        
+
+def show_file_selector(label, file_path, is_markdown=False, height=500):
+    """显示复选框，勾选后展示带固定高度滚动条的文件内容"""
+    if not os.path.exists(file_path):
+        st.write(f"{label} 文件不存在：{file_path}")
+        return
+
+    show_content = st.checkbox(f"显示 {label}", key=f"show_{label}")
+
+    if show_content:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if is_markdown:
+            st.markdown(content,line_numbers=True, height=height)
+        else:
+            # st.code 支持设置 height，显示带滚动条的代码区域
+            st.code(content, language="python", line_numbers=True, height=height)
+
 
 # ----------- 保存 config.yaml -----------
 def save_config(config, path=CONFIG_PATH):
@@ -96,7 +127,7 @@ def get_datasets_for_model(model_list, model_map):
     从模型列表中提取所有模型支持的数据集，并返回它们的交集。
 
     参数：
-    - model_list (List[str]): 模型名称列表，如 ['fp_NN', 'gnn']
+    - model_list (List[str]): 模型名称列表，如 ['FP NN', 'GNN GCN']
     - model_map (Dict[str, Dict]): 从 model_datasets.yaml 加载的模型映射
 
     返回：
@@ -105,9 +136,15 @@ def get_datasets_for_model(model_list, model_map):
     all_dataset_sets = []
 
     for model in model_list:
-        model_info = model_map.get(model)
-        if model_info and "datasets" in model_info:
-            all_dataset_sets.append(set(model_info["datasets"]))
+        try:
+            model_name= model.split("_")[0]
+            model_type = model.split("_")[1]
+        except ValueError:
+            continue  # 忽略格式错误的条目
+
+        datasets = model_map.get(model_name, {}).get(model_type)
+        if datasets:
+            all_dataset_sets.append(set(datasets))
 
     if not all_dataset_sets:
         return []
@@ -155,18 +192,25 @@ st.selectbox(
     options=model_field_options,
     key="selected_model_field",
     on_change=on_model_field_change
-)
-    
+)    
 # ----------- 从 model_dataset_map.yaml 获取数据集列表 -----------
 @st.cache_data
-def load_model_map(modelfield,path=MODEL_PATH):
-    new_path = os.path.join(path,modelfield,'model_datasets.yaml')
+def load_model_map(modelfield, path=MODEL_PATH):
+    new_path = os.path.join(path, 'models.yaml')
     with open(new_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f).get("models", {})
+        data = yaml.safe_load(f)
+
+    return data.get(modelfield, {}).get("models", {})
+
 model_field = st.session_state["selected_model_field"]
 if model_field:
+    model_options =[]
     model_map = load_model_map(model_field)
-    model_options = list(model_map.keys())
+    for mode_l in model_map:
+        submodels = get_submodel(model_field,mode_l)
+        for submodel in submodels:
+            full_model = f"{mode_l}_{submodel}"
+            model_options.append(full_model)
     model_options_with_all = model_options + ["all"]
     # ----------- 记录模型选择前的值 -----------
 
@@ -187,7 +231,29 @@ if "all" in st.session_state["selected_models"]:
     model = model_options
 else:
     model = st.session_state["selected_models"]
+    
 
+if model:
+    model_upper_list =[]
+    for models in model:
+        if isinstance(models, str) and "_" in models:
+            model_part = models.split("_")[0]
+        else:
+            model_part = str(models).upper()
+        if model_part not in model_upper_list:
+            model_upper_list.append(model_part)
+            readname = f"{model_part}_readme.md"
+            outputname = f"{model_part}_output.py"
+            dataname = f"{model_part}_data.py"
+            modelname = f"{model_part}_model.py"
+            READMEFILE_PATH = os.path.join(project_root, 'models',model_field,readname)
+            OUTPUTFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,outputname)
+            DATAFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,dataname)
+            MODELFILE_PATH=os.path.join(project_root, 'models',model_field,model_part,modelname)
+            show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
+            show_file_selector(f"{model_part}: Output Script", OUTPUTFILE_PATH)
+            show_file_selector(f"{model_part}: Data Script", DATAFILE_PATH)
+            show_file_selector(f"{model_part}: Model Script", MODELFILE_PATH)
 #--------datasets 只有在 model 出现的时候再出现
 def on_dataset_change():
     st.session_state["selected_tasks"] = []  # 重置任务选择
@@ -224,7 +290,8 @@ if "name" in locals() and name:
         dataset_name = name[0]
 
         try:
-            available_tasks = get_datasets_measure_names(dataset_name)
+            utils = CheckUtils(st.session_state["selected_model_field"])
+            available_tasks = utils.get_datasets_measure_names(dataset_name)
             task_options_with_all = available_tasks + ["all"]
 
             # 如果换了数据集，重置任务选择
@@ -256,7 +323,7 @@ eval = st.checkbox("是否评估模型并绘图 (eval)", key="eval")
 # ----------- smiles_list 输入框 -----------
 if "smiles_list" not in st.session_state:
     st.session_state["smiles_list"] = "random200"
-st.markdown("### 选择 SMILES 输入方式")
+st.markdown("### 选择数据输入方式")
 mode_display_to_internal = {
     "自动评估": "auto_eval",
     "上传文件": "file_upload",
@@ -327,7 +394,7 @@ if st.button("运行模型配置并保存配置文件"):
     fields_to_convert = ["model", "name", "target_list"]
     config = load_config()
     config["user_argument"] = st.session_state["selected_model_field"]
-    config["model"] = st.session_state["selected_models"]
+    config["model"] = model
     config["name"] = name
     config["target_list"] = target_list
     config["eval"] = st.session_state["eval"]
@@ -356,7 +423,7 @@ if st.button("运行模型配置并保存配置文件"):
             "model": config["model"],
             "dataset": config["name"],
             "task": config["target_list"],
-            "smiles": config["smiles_list"],
+            "data": config["smiles_list"],
             "eval": config["eval"]
         }
         history_list = []

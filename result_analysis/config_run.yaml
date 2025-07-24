@@ -1,6 +1,6 @@
 eval: true
-model: gnn_GIN,gnn_GCN
-name: BACE,BBBP,ClinTox,ESOL,FreeSolv,HIV,Lipo,MUV,SIDER,Tox21,qm7,qm8,qm9
+model: FP_NN,FP_RF,FP_SVM,FP_XGB,GNN_GIN,GNN_GCN,RNN_RNN,SEQ_SEQ
+name: BBBP,ClinTox,ESOL,FreeSolv,HIV,Lipo,MUV,SIDER,qm7,qm8,qm9
 output: results
 plotpath: plots
 plotprevisousruns: false

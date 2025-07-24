@@ -21,7 +21,7 @@ MODEL_MAP = {
     'XGB': FP_XGB
 }
 
-def fp_predict(name, target, smiles_list, model_type = 'NN'):
+def predict(name, target, smiles_list, model_type = 'NN'):
     """
     FP预测主函数
     :param name: 数据集名称
