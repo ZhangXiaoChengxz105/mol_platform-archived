@@ -46,4 +46,4 @@ config: {
 
 data_type: "smiles"
 dataset_names: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-regression_tasks: ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+regression_datasets: ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
