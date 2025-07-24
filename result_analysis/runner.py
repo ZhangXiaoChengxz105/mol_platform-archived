@@ -14,7 +14,6 @@ sys.path.append(model_dir)
 from check_utils import validate_datasets_measure_names
 import numpy as np
 import torch
-from squence import sequenceDataset
 from base import BaseDataset
 import re
 import random
@@ -60,7 +59,7 @@ class Runner(model_runner_interface):
         if model_path not in sys.path:
             sys.path.append(model_path)
 
-        import_stmt = f"from {model_id.upper()}_output import {model_id}_predict as predict_func"
+        import_stmt = f"from {model_id.upper()}_output import predict as predict_func"
         try:
             exec(import_stmt, globals())
         except Exception as e:
@@ -152,111 +151,111 @@ def parse_args():
     
     return parser.parse_args()
 
-def lookup(item,data):
-    model = item['model']
-    smiles= item['data']
-    task = item['task']
-    name = item['name']
-    target= item['target']
-    prediction = item['prediction']
-    label= item['label']
-    name_index, indexcnt = lookupindex(name, target)
-    try:
-        smiles_index = data['smiles'].index(smiles)
-        item["truth"]= data['label'][smiles_index][name_index] if indexcnt > 1 else data['label'][smiles_index]
-        return item
-    except ValueError:
-        return item
+# def lookup(item,data):
+#     model = item['model']
+#     smiles= item['data']
+#     task = item['task']
+#     name = item['name']
+#     target= item['target']
+#     prediction = item['prediction']
+#     label= item['label']
+#     name_index, indexcnt = lookupindex(name, target)
+#     try:
+#         smiles_index = data['smiles'].index(smiles)
+#         item["truth"]= data['label'][smiles_index][name_index] if indexcnt > 1 else data['label'][smiles_index]
+#         return item
+#     except ValueError:
+#         return item
     
     
-def lookupindex(model,name):
-    # 查找对应模型中的 task的索引id、
-    # 查找单个数据集中的某个任务在这个数据集中的索引
-    config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
+# def lookupindex(model,name):
+#     # 查找对应模型中的 task的索引id、
+#     # 查找单个数据集中的某个任务在这个数据集中的索引
+#     config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
+#     with open(config_path, 'r') as f:
+#         config = yaml.safe_load(f)
     
-    datasets = config.get("datasets", {})
+#     datasets = config.get("datasets", {})
     
-    # 忽略大小写查找 model
-    matched_model = None
-    for key in datasets:
-        if key.lower() == model.lower():
-            matched_model = key
-            break
+#     # 忽略大小写查找 model
+#     matched_model = None
+#     for key in datasets:
+#         if key.lower() == model.lower():
+#             matched_model = key
+#             break
     
-    if matched_model is None:
-        raise ValueError(f"Model '{model}' not found in config (case-insensitive match failed).")
+#     if matched_model is None:
+#         raise ValueError(f"Model '{model}' not found in config (case-insensitive match failed).")
     
-    label_cols = datasets[matched_model].get("label_cols", [])
+#     label_cols = datasets[matched_model].get("label_cols", [])
     
-    # 忽略大小写查找 task
-    matched_name = None
-    for i, label in enumerate(label_cols):
-        if label.lower() == name.lower():
-            matched_name = i
-            break
+#     # 忽略大小写查找 task
+#     matched_name = None
+#     for i, label in enumerate(label_cols):
+#         if label.lower() == name.lower():
+#             matched_name = i
+#             break
     
-    if matched_name is None:
-        raise ValueError(f"name '{name}' not found in model '{matched_model}' labels (case-insensitive match failed).")
+#     if matched_name is None:
+#         raise ValueError(f"name '{name}' not found in model '{matched_model}' labels (case-insensitive match failed).")
     
-    return matched_name, len(label_cols)
+#     return matched_name, len(label_cols)
 
-def get_all_targets_and_smiles(name,data):
-    config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-        datasets = config.get("datasets", {})
+# def get_all_targets_and_smiles(name,data):
+#     config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
+#     with open(config_path, 'r') as f:
+#         config = yaml.safe_load(f)
+#         datasets = config.get("datasets", {})
     
-    # 忽略大小写匹配 name
-    matched_name = None
-    for key in datasets:
-        if key.lower() == name.lower():
-            matched_name = key
-            break
+#     # 忽略大小写匹配 name
+#     matched_name = None
+#     for key in datasets:
+#         if key.lower() == name.lower():
+#             matched_name = key
+#             break
     
-    if matched_name is None:
-        raise ValueError(f"No dataset config found for '{name}'.")
-    smiles_col = data['smiles']
-    label_cols = datasets[matched_name]["label_cols"]
+#     if matched_name is None:
+#         raise ValueError(f"No dataset config found for '{name}'.")
+#     smiles_col = data['smiles']
+#     label_cols = datasets[matched_name]["label_cols"]
     
     
-    return smiles_col, label_cols
+#     return smiles_col, label_cols
     
-def get_all_datasets(model: str,):
-    # 设置路径
-    config_path = os.path.join(project_root, "models", "model_datasets.yaml")
+# def get_all_datasets(model: str,):
+#     # 设置路径
+#     config_path = os.path.join(project_root, "models", "model_datasets.yaml")
 
-    # 判断文件是否存在
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"模型配置文件未找到: {config_path}")
+#     # 判断文件是否存在
+#     if not os.path.exists(config_path):
+#         raise FileNotFoundError(f"模型配置文件未找到: {config_path}")
 
-    # 读取 YAML 文件
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+#     # 读取 YAML 文件
+#     with open(config_path, "r", encoding="utf-8") as f:
+#         config = yaml.safe_load(f)
 
-    # 获取模型对应部分
-    model_section = config.get("models", {}).get(model)
-    if not model_section:
-        raise ValueError(f"模型 '{model}' 不存在于配置文件中")
+#     # 获取模型对应部分
+#     model_section = config.get("models", {}).get(model)
+#     if not model_section:
+#         raise ValueError(f"模型 '{model}' 不存在于配置文件中")
 
-    # 返回 datasets 列表
-    return model_section.get("datasets", [])
+#     # 返回 datasets 列表
+#     return model_section.get("datasets", [])
     
 
-def get_all_models():
-    # 假设 project_root 已定义，例如：
-    # project_root = os.path.dirname(os.path.dirname(__file__))
-    config_path = os.path.join(project_root, 'models', 'model_datasets.yaml')
+# def get_all_models():
+#     # 假设 project_root 已定义，例如：
+#     # project_root = os.path.dirname(os.path.dirname(__file__))
+#     config_path = os.path.join(project_root, 'models', 'model_datasets.yaml')
 
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"配置文件未找到: {config_path}")
+#     if not os.path.exists(config_path):
+#         raise FileNotFoundError(f"配置文件未找到: {config_path}")
 
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
+#     with open(config_path, 'r', encoding='utf-8') as f:
+#         config = yaml.safe_load(f)
 
-    model_dict = config.get("models", {})
-    return list(model_dict.keys())
+#     model_dict = config.get("models", {})
+#     return list(model_dict.keys())
     
 def get_latest_run_num(output):
     path = os.path.join(project_root, 'results', output)
@@ -281,11 +280,9 @@ def get_latest_run_num(output):
 if __name__ == '__main__':
     args = parse_args()
     grouped_results = defaultdict(list)
-    # 参数拆分处理
-    if args.model.strip().lower() == "all":
-        Model_list = get_all_models(args.user_argument)
-    else:
-        Model_list = [m.strip().lower() for m in args.model.split(',')]
+    Model_list = [m.strip().lower() for m in args.model.split(',')]
+    config_datasets_path = os.path.join(provider_dir,"data",args.user_argument,'dataset.yaml')
+    finalres = []
     for model in Model_list:
         if "_" in args.model:
             model, model_type = model.split("_", 1)
@@ -297,16 +294,14 @@ if __name__ == '__main__':
         print(model)
         print(model_type)
         names_list =[s.strip() for s in args.name.split(',')]
-        finalres = []
-        for name in names_list:    
-            ds = BaseDataset(args.name, os.path.join(project_root, 'dataset', 'data', f'{name}.csv'))
-            ds.loadData()
-            data = ds.provideSmilesAndLabel(name)
-            tmpsm, tmptg = get_all_targets_and_smiles(name, data)
-
-            # target_list
-            if args.target_list.strip().lower() == "all":
-                target_list = tmptg
+        for name in names_list:
+            ds = None
+            if args.target_list =='all' or smiles_arg == "all" or re.match(r"random\d+", smiles_arg):  
+                ds = BaseDataset(name, os.path.join(project_root, 'dataset', 'data',args.user_argument, f'{name}.csv'))
+                ds.loadData()
+                ret = ds.get_all_data_and_task_labels(config_datasets_path)
+            if args.target_list =='all':
+                target_list = ret['tasks'][name]
             else:
                 target_list = [t.strip() for t in args.target_list.split(',')]
             
@@ -320,21 +315,22 @@ if __name__ == '__main__':
             target_list = valid_targets
 
             if not target_list:
-                print(f"❌ 数据集 {name} 无合法 target，跳过该项")
+                print(f"❌ 数据集 {name} 无合法 target,跳过该项")
                 continue
 
             smiles_arg = args.smiles_list.strip().lower()
 
             # smiles_list
             if smiles_arg == "all":
-                smiles_list = tmpsm
+                smiles_list = ret['data']
             elif re.match(r"random\d+", smiles_arg):
                 count = int(re.findall(r"\d+", smiles_arg)[0])
-                available = len(tmpsm)
+                available = len(ret['data'])
                 actual_count = min(count, available)
                 if actual_count < count:
                     print(f"⚠️ Requested random{count}, but only {available} SMILES available. Using {actual_count}.")
-                smiles_list = random.sample(tmpsm, actual_count)
+                smiles_list = random.sample(ret['data'], actual_count)
+                print(smiles_list)
             else:
                 smiles_list = [s.strip() for s in args.smiles_list.split(',')]
             if model_type:
@@ -343,7 +339,10 @@ if __name__ == '__main__':
                 for i in range(len(result)):
                     subresult = result[i]
                     if "error" not in subresult:
-                        subresult = lookup(subresult,data)
+                        if ds:
+                            d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
+                            if truth != None:
+                                subresult['truth'] = truth
                         finalres.append(subresult)
                     else:
                         finalres.append(subresult)
@@ -353,24 +352,27 @@ if __name__ == '__main__':
                 for i in range(len(result)):
                     subresult = result[i]
                     if "error" not in subresult:
-                        subresult = lookup(subresult,data)
+                        if ds:
+                            d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
+                            if truth != None:
+                                subresult['truth'] = truth
                         finalres.append(subresult)
                     else:
                         finalres.append(subresult)
             
-        if finalres:
-            # ⏬ 按 model_name_target 分组
-            for i, item in enumerate(finalres):
-                if "name" not in item or item["name"] is None:
-                    print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
-            for item in finalres:
-                base_key = f"{item['model']}_{item['name']}_{item['target']}"
-                if 'error' in item and item['error']:
-                    key = f"{base_key}_error"
-                else:
-                    key = base_key
-                grouped_results[key].append(item)
-            runid = get_latest_run_num(args.output) if args.output else "run1"
+    if finalres:
+        # ⏬ 按 model_name_target 分组
+        for i, item in enumerate(finalres):
+            if "name" not in item or item["name"] is None:
+                print(f"❌ 缺少 'name' 的条目 #{i}: {item}")
+        for item in finalres:
+            base_key = f"{item['model']}_{item['name']}_{item['target']}"
+            if 'error' in item and item['error']:
+                key = f"{base_key}_error"
+            else:
+                key = base_key
+            grouped_results[key].append(item)
+        runid = get_latest_run_num(args.output) if args.output else "run1"
 
     output_dir = args.output if args.output else "output"
     all_output_dir = os.path.join(project_root, 'results', output_dir)
