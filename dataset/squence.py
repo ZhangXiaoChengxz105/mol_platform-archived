@@ -37,7 +37,7 @@ class sequenceDataset(BaseDataset, dataProvider):
                 "label": List[int or List[float]]      # 对应的标签
             }
         """
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         if model_name not in config["datasets"]:
@@ -74,7 +74,7 @@ class sequenceDataset(BaseDataset, dataProvider):
         return vocab
 
     def provideLabel(self, model_name, task_name=None):
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         if model_name not in config["datasets"]:

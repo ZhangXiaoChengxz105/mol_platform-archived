@@ -172,7 +172,7 @@ def lookup(item,data):
 def lookupindex(model,name):
     # 查找对应模型中的 task的索引id、
     # 查找单个数据集中的某个任务在这个数据集中的索引
-    config_path = os.path.join(project_root, 'dataset','smile_config.yaml')   
+    config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
     
@@ -203,7 +203,7 @@ def lookupindex(model,name):
     return matched_name, len(label_cols)
 
 def get_all_targets_and_smiles(name,data):
-    config_path = os.path.join(project_root, 'dataset','smile_config.yaml')   
+    config_path = os.path.join(project_root, 'dataset','moleculnet_config.yaml')
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
         datasets = config.get("datasets", {})

@@ -26,7 +26,7 @@ class ECFPDataset(BaseDataset, dataProvider):
         return torch.tensor(arr, dtype=torch.float32)
 
     def provideData(self, model_name):
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         task_cfg = config["datasets"][model_name]
@@ -45,7 +45,7 @@ class ECFPDataset(BaseDataset, dataProvider):
         return {"input": torch.stack(inputs), "label": labels}
 
     def provideLabel(self, model_name, task_name=None):
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         task_cfg = config["datasets"][model_name]
@@ -79,7 +79,7 @@ class MACCSDataset(BaseDataset, dataProvider):
         return torch.tensor(arr, dtype=torch.float32)
 
     def provideData(self, model_name):
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         task_cfg = config["datasets"][model_name]
@@ -98,7 +98,7 @@ class MACCSDataset(BaseDataset, dataProvider):
         return {"input": torch.stack(inputs), "label": labels}
 
     def provideLabel(self, model_name, task_name=None):
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         task_cfg = config["datasets"][model_name]

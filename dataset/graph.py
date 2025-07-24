@@ -64,7 +64,7 @@ class graphDataset(BaseDataset, dataProvider):
     def provideData(self, model_name):
         """
         Args:
-            model_name (str): The name of the dataset model, must match a key in smile_config.yaml.
+            model_name (str): The name of the dataset model, must match a key in moleculnet_config.yaml.
 
         Returns:
             dict:
@@ -73,7 +73,7 @@ class graphDataset(BaseDataset, dataProvider):
             "label": List[int | List[float]]           # 对应的标签（单标签或多标签）
         }
         """
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         if model_name not in config["datasets"]:
@@ -103,7 +103,7 @@ class graphDataset(BaseDataset, dataProvider):
     def provideLabel(self, model_name, task_name=None):
         """
            Args:
-               model_name (str): Dataset name, must match a key in smile_config.yaml.
+               model_name (str): Dataset name, must match a key in moleculnet_config.yaml.
                task_name (str, optional): Specific label column to extract. If None, all label columns are returned.
 
            Returns:
@@ -112,7 +112,7 @@ class graphDataset(BaseDataset, dataProvider):
            """
         import yaml
 
-        with open("smile_config.yaml", "r") as f:
+        with open("moleculnet_config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
         if model_name not in config["datasets"]:
