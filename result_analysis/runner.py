@@ -282,6 +282,7 @@ if __name__ == '__main__':
     grouped_results = defaultdict(list)
     Model_list = [m.strip().lower() for m in args.model.split(',')]
     config_datasets_path = os.path.join(provider_dir,"data",args.user_argument,'dataset.yaml')
+    finalres = []
     for model in Model_list:
         if "_" in args.model:
             model, model_type = model.split("_", 1)
@@ -293,11 +294,12 @@ if __name__ == '__main__':
         print(model)
         print(model_type)
         names_list =[s.strip() for s in args.name.split(',')]
-        finalres = []
-        for name in names_list:    
-            ds = BaseDataset(name, os.path.join(project_root, 'dataset', 'data',args.user_argument, f'{name}.csv'))
-            ds.loadData()
-            ret = ds.get_all_data_and_task_labels(config_datasets_path)
+        for name in names_list:
+            ds = None
+            if args.target_list =='all' or smiles_arg == "all" or re.match(r"random\d+", smiles_arg):  
+                ds = BaseDataset(name, os.path.join(project_root, 'dataset', 'data',args.user_argument, f'{name}.csv'))
+                ds.loadData()
+                ret = ds.get_all_data_and_task_labels(config_datasets_path)
             if args.target_list =='all':
                 target_list = ret['tasks'][name]
             else:
@@ -337,9 +339,10 @@ if __name__ == '__main__':
                 for i in range(len(result)):
                     subresult = result[i]
                     if "error" not in subresult:
-                        d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
-                        if truth != None:
-                            subresult['truth'] = truth
+                        if ds:
+                            d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
+                            if truth != None:
+                                subresult['truth'] = truth
                         finalres.append(subresult)
                     else:
                         finalres.append(subresult)
@@ -349,9 +352,10 @@ if __name__ == '__main__':
                 for i in range(len(result)):
                     subresult = result[i]
                     if "error" not in subresult:
-                        d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
-                        if truth != None:
-                            subresult['truth'] = truth
+                        if ds:
+                            d,truth = ds.get_entry_by_data(subresult['data'],subresult['target'],config_datasets_path)
+                            if truth != None:
+                                subresult['truth'] = truth
                         finalres.append(subresult)
                     else:
                         finalres.append(subresult)
