@@ -1,11 +1,11 @@
-## Dataset Format Requirements
+# 数据集格式要求
 
-All datasets **must** be in `.csv` format. Each row represents a molecule with the following minimal fields:
+所有数据集必须为 `.csv` 格式。每一行表示一个分子，且必须包含以下字段：
 
-- A molecular representation (e.g., SMILES string)
-- One or more task labels (e.g., bioactivity, toxicity)
+- 分子表示（例如 SMILES 字符串）
+- 一个或多个任务标签（例如生物活性、有毒性、溶解度等）
 
-### Example CSV Format
+## 示例 CSV 格式
 
 ```csv
 data,MUV-466,MUV-548
@@ -13,8 +13,8 @@ CCOC(=O)c1ccc(C(=O)OCC)cc1,1,0
 CCN(CC)CCOC(=O)c1ccc(C(=O)O)cc1,0,1
 ```
 
-- **`data`**: Required column that provides molecular input.
-- **Task labels**: Can be one or more columns depending on the dataset.
+- **`data`**：这是必须字段，通常填写 SMILES 字符串，表示分子结构。
+- **任务标签**：一个或多个列，用于回归或分类任务。支持多任务学习场景。
 
 ---
 
