@@ -3,16 +3,14 @@ from base import BaseDataset
 if __name__ == "__main__":
     dataset_name = "MUV"
     csv_path = "../data/muv.csv"
-    task_type = "classification"
-    config_file = "./data/dataset.yaml"
+    config_file = "./data/moleculenet/dataset.yaml"
 
-    # === 初始化并加载数据 ===
+
     ds = BaseDataset(datasetname=dataset_name, datasetpath=csv_path)
     ds.loadData()
 
-    # === 测试 get_data_and_labels_by_config ===
+
     result = ds.get_data_and_labels_by_config(
-        task_type=task_type,
         config_file=config_file
     )
     print("✅ 调用 get_data_and_labels_by_config 成功")
@@ -21,7 +19,7 @@ if __name__ == "__main__":
     print(f"🏷️ 示例标签: {result['label'][0]}")
     print("=======================================")
 
-    # === 测试 get_entry_by_data ===
+
     example_data = result["data"][0]
     data_val, label_val = ds.get_entry_by_data(
         data_str=example_data,
@@ -34,7 +32,6 @@ if __name__ == "__main__":
     print(f"🎯 字段 MUV-466: {label_val}")
     print("=======================================")
 
-    # === 测试 get_all_data_and_task_labels ===
     all_info = ds.get_all_data_and_task_labels(
         config_file=config_file
     )
