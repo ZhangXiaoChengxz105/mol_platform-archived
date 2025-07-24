@@ -9,8 +9,8 @@ class CheckUtils:
         参数:
             config_path: 配置文件的路径，如果为None，则使用默认配置
         """
-
         self.config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), dataset_name, "dataset.yaml")
+        # self.config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dataset", "data", dataset_name, "dataset.yaml")
         self._load_config()
     
     def _load_config(self):
