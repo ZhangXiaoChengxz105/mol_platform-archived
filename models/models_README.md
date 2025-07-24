@@ -46,7 +46,8 @@ root/
     |   ├── model_nameN_finetune/
     |   ├── model_nameN_README.md
     |   ...
-    |   ├── model_datasets.yaml # 数据集信息 
     ...
     ├── dataset_nameN/
     |   ...
+    ├── model_datasets.yaml     # dataset info 
+    ├── models_README.md        # intro
