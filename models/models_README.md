@@ -9,7 +9,8 @@ which follows following structure ("model_name" is the name of your model you se
     ├── model_name_model.py     # model core implementation (ex: fingerprints to predict values)
     ├── model_name_output.py    # formalize the model output (ex: pred values to formatted results)
     ├── ...
-    ├── model_name_finetune/    # pretrained parameters folder
+    model_name_finetune/    # pretrained parameters folder
+    ├── ...
 
 and config and description files:
 
