@@ -7,6 +7,18 @@ Yanzhen, Chen
 Zhejiang University
 contribution includes: Biult the workflow, finetuned origin model's parameter and simplified origin paper's models to "FP_GN" for prediction, designed and trained the models "FP_RF", "FP_SVM", "FP_XGB" from tradition ML method(RF, SVM, XGB)
 
+# **模型工作流功能介绍**
+## **训练**：
+	FP工作流使用moleculnet数据集训练，通过smiles转换的fingerprint实现对分子指纹特征的提取，用于预测分子性质
+	FP工作流模型包含4种分类模型(NN,RF,SVM,XGB)，
+	包含四种模型：
+
+	MODEL_MAP = {
+		'NN': FP_NN,    # Neuron Network
+		'RF': FP_RF,    # Random Forest
+		'SVM': FP_SVM,  # Support Vector Machine
+		'XGB': FP_XGB   # XGBoost
+	}
 # **环境配置**
     python=3.11.8
     
@@ -101,11 +113,3 @@ ex: sys.path.append(os.path.dirname(os.path.abspath(__file__)))
             "label":
         }
     ]
-### 模型对应关系
-model_type 类型：
-	MODEL_MAP = {
-		'NN': FP_NN,    # Neuron Network
-		'RF': FP_RF,    # Random Forest
-		'SVM': FP_SVM,  # Support Vector Machine
-		'XGB': FP_XGB   # XGBoost
-	}
