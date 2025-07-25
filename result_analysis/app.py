@@ -51,7 +51,7 @@ RUN_SCRIPT_PATH = os.path.join(project_root,'result_analysis','run_all.py')
 HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history.json')
 MODEL_DATASET_PATH = os.path.join(MODEL_PATH,'models.yaml')
 UPLOAD_MODEL_README = os.path.join(MODEL_PATH,'models_README.md')
-UPLOAD_DATA_README = os.path.join(project_root,'dataset','data_README.md')
+UPLOAD_DATA_README = os.path.join(project_root,'dataset','dataset_README.md')
 
 
 
@@ -270,7 +270,7 @@ if "model_list_changed" not in st.session_state:
 # ----------- 展开按钮 -----------
 col1, col2 = st.columns([10, 1])
 with col2:
-    if st.button("➕ 添加模型类型"):
+    if st.button("➕ 添加模型类型（再点击一次以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
 
 # ----------- 展开区域 -----------
@@ -316,7 +316,7 @@ if st.session_state.get("show_model_input", True):
 
     if selected_option == "自定义输入":
         custom_input = st.text_input(
-            "请输入新的模型类型",
+            "请输入新的模型类型并回车",
             value=st.session_state.get("custom_model_input", ""),
             key="custom_model_input",
             on_change=on_custom_input_change,
@@ -352,7 +352,7 @@ if st.session_state.get("show_model_input", True):
     final_model_type = st.session_state.final_model_type
 
     # ----------- 上传文件区域 -----------
-    uploaded_zip = st.file_uploader("📦 上传模型文件包（model.zip）", type=["zip"])
+    uploaded_zip = st.file_uploader(f"📦 上传模型文件包（model.zip），过大文件请手动解压缩并放入molplat_form/dataset/data/你选择的模型类型 目录下（molplat_form/dataset/data/{final_model_type}）", type=["zip"])
     if uploaded_zip:
         st.session_state["uploaded_model_zip"] = uploaded_zip
         st.success(f"✅ 上传模型包：{uploaded_zip.name}")
@@ -367,7 +367,7 @@ if st.session_state.get("show_model_input", True):
         st.session_state["uploaded_data_config"] = uploaded_data_config
         st.success(f"✅ 上传数据配置：{uploaded_data_config.name}")
 
-    uploaded_data_zip = st.file_uploader("🗂️ 上传数据文件包（data.zip）", type=["zip"])
+    uploaded_data_zip = st.file_uploader(f"🗂️ 上传数据文件包（data.zip），过大文件请手动解压缩并放入molplat_form/models/你选择的模型类型 目录下 （molplat_form/models/{final_model_type}）", type=["zip"])
     if uploaded_data_zip:
         st.session_state["uploaded_data_zip"] = uploaded_data_zip
         st.success(f"✅ 上传数据文件：{uploaded_data_zip.name}")
@@ -388,6 +388,7 @@ if st.session_state.get("show_model_input", True):
             model_ready = (model_zip is not None) and (model_config is not None)
             # 检查数据组是否完整
             data_ready = (data_zip is not None) and (data_config is not None)
+            all_configs = (model_config is not None ) and (data_config is not None)
 
             # 情况1：模型组完整，data_zip 可以缺失（但 data_config 必须传）
             condition1 = model_ready and (data_config is not None)
@@ -395,7 +396,7 @@ if st.session_state.get("show_model_input", True):
             condition2 = data_ready and (not model_ready)
             condition3 = model_ready and data_ready
 
-            if condition1 or condition2:
+            if condition1 or condition2 or condition3 or all_configs:
                 # ✅ 满足条件，调用 process
                 result = process(
                     final_model_type,
@@ -424,7 +425,8 @@ if st.session_state.get("show_model_input", True):
                 请确保符合以下条件之一：
                 - **情况1**：完整上传模型组（`model_zip` + `model_config`），并至少上传 `data_config`（`data_zip` 可选），**或**  
                 - **情况2**：完整上传数据组（`data_zip` + `data_config`），不上传模型组，**或** 
-                - **情况3**: 全部完整上传 
+                - **情况3**: 全部完整上传 ，**或** 
+                - **情况4**: 上传config 并将其余文件放入对应文件夹下
 
 
                 """)
