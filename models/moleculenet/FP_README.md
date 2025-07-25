@@ -8,7 +8,10 @@ Zhejiang University
 contribution includes: Biult the workflow, finetuned origin model's parameter and simplified origin paper's models to "FP_GN" for prediction, designed and trained the models "FP_RF", "FP_SVM", "FP_XGB" from tradition ML method(RF, SVM, XGB)
 
 # **环境配置**
-scikit-learn==1.7.0
+    python=3.11.8
+    
+    pip install torch torch-geometric rdkit==2024.3.5 numpy scikit-learn==1.7.0 transformers pandas xgboost
+	
 # **模块结构**
 	moleculnet/
 	├── FP/                        # 模型核心文件

@@ -6,6 +6,11 @@ Yanzhen, Chen
 Zhejiang University
 contribution includes: Biult the workflow, trained model's parameter and simplified it for prediction usage
 
+# **环境配置**
+    python=3.11.8
+    
+    pip install torch torch-geometric rdkit==2024.3.5 numpy scikit-learn==1.7.0 transformers pandas xgboost
+	
 # **模块结构**
 	moleculnet/
 	├── RNN/                        # 模型核心文件
