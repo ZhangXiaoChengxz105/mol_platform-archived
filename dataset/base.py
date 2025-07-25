@@ -116,3 +116,20 @@ class BaseDataset:
             "data": list(valid_data_set),
             "tasks": tasks_label_names
         }
+
+    def get_task_labels_by_dataset(
+            self,
+            dataset_name: str = None,
+            config_file: str = None
+    ) -> List[str]:
+
+        if dataset_name is None:
+            dataset_name = self.datasetname
+
+        config = self._get_config(config_file)
+        task_config = config.get("config", {})
+
+        if dataset_name not in task_config:
+            raise ValueError(f"配置中找不到数据集 {dataset_name} 的标签信息")
+
+        return task_config[dataset_name]
