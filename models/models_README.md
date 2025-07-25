@@ -4,15 +4,15 @@ To fit the structure we define
 you must have 3 core files: *_data.py, *_model.py, *_output.py, and paremeter files
 which follows following structure ("model_name" is the name of model you set)
 
-    model.zip/
-    ├── model_name/                  # model workflow folder
-    |    ├── model_name_data.py      # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
-    |    ├── model_name_model.py     # model core implementation (ex: fingerprints to predict values)
-    |    ├── model_name_output.py    # formalize the model output (ex: pred values to formatted results)
-    |    ├── ...
-    ├── model_name_finetune/         # pretrained parameters folder
-    |    ├── ...
-    ├── model_name_README.md         # model description, include environment requirement and usage
+    dataset_name/
+        ├── model_name/                  # model workflow folder
+            ├── model_name_data.py       # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
+            ├── model_name_model.py      # model core implementation (ex: fingerprints to predict values)
+            ├── model_name_output.py     # formalize the model output (ex: pred values to formatted results)
+            ├── ...
+        ├── model_name_finetune/         # pretrained parameters folder
+            ├── ...
+        ├── model_name_README.md         # model description, include environment requirement and usage
 
 an example structure from moleculenet:
 
@@ -89,7 +89,7 @@ This file should be formatted as below example from moleculnet:
     datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
 
     models:
-        # model_type
+        # model_type, cofresponding to the parmeter model_type in the function predict above
         FP:     # FP refer to fingerprint, which is the input of models (NN, RF,...)
             # model_name
             NN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']    # supported datasets
