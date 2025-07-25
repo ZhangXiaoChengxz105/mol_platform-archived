@@ -665,7 +665,7 @@ else:
 
         try:
             result = subprocess.run(
-                ["conda", "run", "-n", "molplat", "python", RUN_SCRIPT_PATH],
+                ["python", RUN_SCRIPT_PATH],
                 check=True  # 自动抛出异常如果失败
             )
             st.success("✅ 模型运行完成！")
