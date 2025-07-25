@@ -54,7 +54,6 @@ class Runner(model_runner_interface):
     def run(self):
         model_id = self.model.strip().lower()
         model_path = os.path.join(project_root, 'models',self.userarg, model_id.upper())
-        print(model_path)
 
         if model_path not in sys.path:
             sys.path.append(model_path)
@@ -291,8 +290,6 @@ if __name__ == '__main__':
         else:
             model = model.strip().lower()
             model_type = None
-        print(model)
-        print(model_type)
         names_list =[s.strip() for s in args.name.split(',')]
         for name in names_list:
             ds = None
@@ -302,7 +299,6 @@ if __name__ == '__main__':
                 ds.loadData()
                 ret = ds.get_all_data_and_task_labels(config_datasets_path)
             if args.target_list =='all':
-                print(ret)
                 target_list = ret['tasks'][name]
             else:
                 target_list = [t.strip() for t in args.target_list.split(',')]
@@ -330,7 +326,6 @@ if __name__ == '__main__':
                 if actual_count < count:
                     print(f"⚠️ Requested random{count}, but only {available} SMILES available. Using {actual_count}.")
                 smiles_list = random.sample(ret['data'], actual_count)
-                print(smiles_list)
             else:
                 smiles_list = [s.strip() for s in args.smiles_list.split(',')]
             if model_type:
