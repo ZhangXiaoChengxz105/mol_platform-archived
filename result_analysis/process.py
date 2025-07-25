@@ -176,7 +176,7 @@ def process_data(model_type, data_config, data_zip):
             zip_ref.extractall(temp_extract_dir)
         
         # 从临时目录的model_type子文件夹移动文件到D_R
-        source_dir = os.path.join(temp_extract_dir, model_type)
+        source_dir = os.path.join(temp_extract_dir, model_type,'data')
         for root, _, files in os.walk(source_dir):
             for file in files:
                 src_path = os.path.join(root, file)
