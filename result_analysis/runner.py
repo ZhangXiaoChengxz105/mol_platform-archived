@@ -296,6 +296,7 @@ if __name__ == '__main__':
         names_list =[s.strip() for s in args.name.split(',')]
         for name in names_list:
             ds = None
+            smiles_arg = args.smiles_list.strip().lower()
             if args.target_list =='all' or smiles_arg == "all" or re.match(r"random\d+", smiles_arg):  
                 ds = BaseDataset(name, os.path.join(project_root, 'dataset', 'data',args.user_argument, f'{name}.csv'))
                 ds.loadData()
@@ -318,8 +319,6 @@ if __name__ == '__main__':
             if not target_list:
                 print(f"❌ 数据集 {name} 无合法 target,跳过该项")
                 continue
-
-            smiles_arg = args.smiles_list.strip().lower()
 
             # smiles_list
             if smiles_arg == "all":
