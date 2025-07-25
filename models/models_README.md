@@ -1,73 +1,39 @@
 # **Models upload rule**
-## **Formatted workflow requirements**
-To fit the structure we define
-you must have 3 core files: *_data.py, *_model.py, *_output.py, and paremeter files
-which follows following structure ("model_name" is the name of model you set)
-
-    dataset_name/
-        ├── model_name/                  # model workflow folder
-            ├── model_name_data.py       # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
-            ├── model_name_model.py      # model core implementation (ex: fingerprints to predict values)
-            ├── model_name_output.py     # formalize the model output (ex: pred values to formatted results)
-            ├── ...
-        ├── model_name_finetune/         # pretrained parameters folder
-            ├── ...
-        ├── model_name_README.md         # model description, include environment requirement and usage
-
-an example structure from moleculenet:
-
-    fp/
-    ├── fp_data.py
-    ├── fp_model.py
-    ├── fp_output.py
-    ├── fp_test.py      # dev test file
-    ├── pubchemfp.py    # other related files
-    fp_finetune/
-    ├── ...
-    fp_README.md
-
-and config files:
-
-    model.yaml              # model config
-    
-    dataset.yaml            # dataset info
-
-
-This benefits other users to use your model
-by understanding the workflow of your model
-
-The format is shown as below:
 
 ## **Least requirements (also for not formatted workflow)**
-You can also upload your customized model,
+You can upload your customized model,
 but at lease have 3 files named:
 
-    model_name_output.py    # replace with the "model_name" you set
+`model_name_output.py`    # replace with the "model_name" you set
     
-    model.yaml
-    
-    dataset.yaml
+`model.yaml`
 
-### **model_name_output.py**
+`dataset.yaml`
+
+## **model_name_output.py**
 This file should have a function named "predict":
     
     def predict(name, target, data_list, model_type = None):  
 
         return results
 
-parameters meaning:
+**parameters meaning:**
 ex: (moleculenet datasets, FP_NN model (which accept fingerprints as input, converted from smiles by FP_data.py))
 
-    data_list = [smile1,smile2]     # data_type of moleculnet dataset
-    name = "BBBP"                   # dataset (subdataset) name
-    target = "p_np"                 # target (task) name
-    model_type = 'NN'               # model type (model name) to select model for prediction
-**although only one model in model_name_model.py, you should specify and use it, see below in model.yaml**
+--`data_list`:  list of datas with data_type of moleculnet dataset
+--`name`:       dataset (subdataset) name
+--`target`:     target (task) name
+--`model_type`: model type (model name) to select model for prediction, default to None for single model case
+
+    data_list = [smile1,smile2]
+    name` = "BBBP" 
+    target = "p_np"
+    model_type = 'NN'
 
     results = predict(name, target, data_list, model_type = 'NN') # usage
 
-
-results is a list of result,
+**return requirement:**
+results returned is a list of result,
 
     results = [result1, result2, ...]
 
@@ -80,34 +46,34 @@ result (element) in results is dictionary:
         "label": label,
     }
 
-and a file named:
 
-### **model.yaml**
+## **model.yaml**
 This file should be formatted as below example from moleculnet:
-
+    # datasets name
     moleculenet:
-    datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-
-    models:
-        # model_type, cofresponding to the parmeter model_type in the function predict above
-        FP:     # FP refer to fingerprint, which is the input of models (NN, RF,...)
-            # model_name
-            NN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']    # supported datasets
-            RF: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-            SVM: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-            XGB: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-        GNN:
-            GIN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-            GCN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-
+        # subdatasets
+        datasets: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
         
-        RNN:
-            # although only one model in RNN, you should still specify it to show supported datasets
-            RNN: ['ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-        SEQ:
-            SEQ: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+        models:
+            # model_type, the input_type of models, ex: FP refers to fingerprint
+            FP:
+                # model_name, also as paremeter "model_type" in function predict
+                NN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']    # supported datasets
+                RF: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+                SVM: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+                XGB: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+            GNN:
+                GIN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+                GCN: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
 
-### **dataset.yaml**
+            
+            RNN:
+                # although only one model in RNN, you should still specify it to show supported datasets
+                RNN: ['ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+            SEQ:
+                SEQ: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+
+## **dataset.yaml**
 This file should be formatted as below example from moleculnet:
 (you can only add the datasets and task you want to predict)
 
@@ -127,25 +93,50 @@ This file should be formatted as below example from moleculnet:
         ...
     }
 
-## **detailed structure (for coding convenience)**
-    root/
-        models/
-        ├── dataset_name1/
-        │   ├── model_name1/            # workflow files
-        │   ├── model_name1_finetune/   # pretrained parameters
-        |   ├── model_name1_README.md   # model information
-        │   ├── model_name2/
-        │   ├── model_name2_finetune/
-        |   ├── model_name2_README.md
-        |   ...
-        |   ├── model_nameN/
-        |   ├── model_nameN_finetune/
-        |   ├── model_nameN_README.md
-        |   ...
-        ...
-        ├── dataset_nameN/
-        |   ...
-        ├── model.yaml     # dataset info 
-        ├── models_README.md        # intro
+# **Formatted structure (for coding convenience)**
+## **Formatted workflow is recommended (but optional)**
+
+    model.zip/
+    ├── model_name/                  # model workflow folder
+    |    ├── model_name_data.py      # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
+    |    ├── model_name_model.py     # model core implementation (ex: fingerprints to predict values)
+    |    ├── model_name_output.py    # formalize the model output (ex: pred values to formatted results)
+    |    ├── ...
+    ├── model_name_finetune/         # pretrained parameters folder
+    |    ├── ...
+    ├── model_name_README.md         # model description, include environment requirement and usage
+
+an example workflow from moleculenet:
+
+    data.py: smiles -> fingerprints
+    model.py: fingerprints -> predict values
+    output.py: predict values -> results
+
+    smiles -> fingerprints -> predict values -> results
+    
+    
+    
+workflow structure:
+
+    FP/                 # refers to fingerprints, which will be used in FP_model (coverted from smiles data by FP_data.py)
+    ├── FP_data.py
+    ├── FP_model.py
+    ├── FP_output.py
+    ├── FP_test.py      # dev test file
+    ├── pubchemfp.py    # other related files
+    FP_finetune/
+    ├── ...
+    FP_README.md
+
+and config files:
+
+    model.yaml              # model config
+    
+    dataset.yaml            # dataset info
+
+
+This benefits other users to use your model
+by understanding the workflow of your model
+
 
 
