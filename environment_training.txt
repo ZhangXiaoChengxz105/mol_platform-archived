@@ -1,3 +1,4 @@
+moleculenet 数据集， 分子指纹FP、 图像GNN、 序列化SEQ 工作流环境配置：
 # 创建并激活新环境
 conda create -n moltrain python=3.8.20 -y
 conda activate moltrain
