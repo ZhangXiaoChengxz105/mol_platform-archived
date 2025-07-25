@@ -37,6 +37,7 @@ config: {
     'BACE': ['Class'],
     
     # 回归任务数据集
+    'Lipo': ['exp'],
     'FreeSolv': ['expt'],
     'ESOL': ['measured log solubility in mols per litre'],
 

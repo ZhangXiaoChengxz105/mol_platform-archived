@@ -301,6 +301,7 @@ if __name__ == '__main__':
                 ds.loadData()
                 ret = ds.get_all_data_and_task_labels(config_datasets_path)
             if args.target_list =='all':
+                print(ret)
                 target_list = ret['tasks'][name]
             else:
                 target_list = [t.strip() for t in args.target_list.split(',')]
