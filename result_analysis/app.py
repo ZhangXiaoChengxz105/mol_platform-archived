@@ -277,6 +277,7 @@ with col2:
 if st.session_state.get("show_model_input", True):
 
     st.markdown("#### 🔧 自定义模型类型与模型包上传")
+    st.markdown("** 注意，如果模型依赖python库，请在终端自行安装以避免冲突")
 
     # 上传说明文件展示
     if os.path.exists(UPLOAD_MODEL_README):

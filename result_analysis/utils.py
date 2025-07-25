@@ -627,8 +627,9 @@ def plot_analysis_metrics_with_values(model_dataset_metrics_classification, mode
 
                 models = list(values_per_model.keys())
                 x = np.arange(len(metrics_keys))
-                width = 0.15
-                offsets = np.linspace(-width * len(models) / 2, width * len(models) / 2, len(models))
+                total_width = 0.8
+                width = total_width / len(models)
+                offsets = np.linspace(-total_width/2 + width/2, total_width/2 - width/2, len(models))
 
                 for i, model in enumerate(models):
                     vals = values_per_model[model]
