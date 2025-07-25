@@ -39,7 +39,7 @@ config: {
     # 回归任务数据集
     'FreeSolv': ['expt'],
     'ESOL': ['measured log solubility in mols per litre'],
-    'Lipo': ['exp'],
+
     'qm7': ['u0_atom'],
     'qm8': [
         'E1-CC2', 'E2-CC2', 'f1-CC2', 'f2-CC2', 'E1-PBE0', 'E2-PBE0',

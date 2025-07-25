@@ -8,7 +8,7 @@ import pandas as pd
 import re
 import json
 from datetime import datetime
-from process import process
+from process import process, delete
 try:
     project_root = pathlib.Path(__file__).resolve().parents[1]
 except NameError:
@@ -18,6 +18,17 @@ if str(project_root) not in sys.path:
 from models.check_utils import get_datasets_measure_names,CheckUtils
 from streamlit_option_menu import option_menu
 
+
+def render_scrollable_markdown(md_text, height=300):
+    st.markdown(
+        f"""
+        <div style='height:{height}px; overflow:auto; padding:10px; border:1px solid #ccc; background-color:#f9f9f9; border-radius:5px'>
+        {md_text}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
 def set_streamlit_upload_limit(limit_mb=2048):
     config_dir = os.path.expanduser("~/.streamlit")
     os.makedirs(config_dir, exist_ok=True)
@@ -37,8 +48,11 @@ MODEL_PATH =os.path.join(project_root,'models')
 CONFIG_PATH = os.path.join(project_root,'result_analysis','config_run.yaml')
 # MODEL_MAP_PATH = os.path.join(project_root,'models','model_datasets.yaml')
 RUN_SCRIPT_PATH = os.path.join(project_root,'result_analysis','run_all.py')
-HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history,json')
+HISTORY_PATH = os.path.join(project_root, 'results', 'results','run_history.json')
 MODEL_DATASET_PATH = os.path.join(MODEL_PATH,'models.yaml')
+UPLOAD_MODEL_README = os.path.join(MODEL_PATH,'models_README.md')
+UPLOAD_DATA_README = os.path.join(project_root,'dataset','data_README.md')
+
 
 
 
@@ -73,9 +87,9 @@ def get_models_and_data(top_key):  # top_key 是 'moleculenet'
     # 提取所有模型名组合，如 FP_NN, GNN_GIN 等
     models_config = top_config.get('models', {})
     model_names = []
-    for model_type, sub_models in models_config.items():
-        for sub_model in sub_models:
-            model_names.append(f"{model_type}_{sub_model}")
+    for model_type in models_config:
+        if isinstance(models_config[model_type], dict): 
+            model_names.append(model_type)
     DATACONFIG_PATH = os.path.join(project_root,'dataset','data',top_key,'dataset.yaml')
     with open(DATACONFIG_PATH, 'r',encoding='utf-8') as g:
         config = yaml.safe_load(g)
@@ -133,7 +147,7 @@ def get_submodel(model_type, model):
 
         
 
-def show_file_selector(label, file_path, is_markdown=False, height=500):
+def show_file_selector(label: str, file_path: str, is_markdown: bool = False, height: int = 500) -> None:
     """显示复选框，勾选后展示带固定高度滚动条的文件内容"""
     if not os.path.exists(file_path):
         st.write(f"{label} 文件不存在：{file_path}")
@@ -146,9 +160,8 @@ def show_file_selector(label, file_path, is_markdown=False, height=500):
             content = f.read()
 
         if is_markdown:
-            st.markdown(content)
+            render_scrollable_markdown(content, height=height)
         else:
-            # st.code 支持设置 height，显示带滚动条的代码区域
             st.code(content, language="python", line_numbers=True, height=height)
 
 
@@ -194,8 +207,7 @@ def get_datasets_for_model(model_list, model_map):
     common_datasets = set.intersection(*all_dataset_sets)
     return sorted(list(common_datasets))
 
-def process(dataset_type,zip):
-    return
+
 
 
 
@@ -223,7 +235,21 @@ if "smiles_eval_num" not in st.session_state:
 
 
 
+def on_select_change():
+    # 选框改变时，如果选择“自定义输入”，保持final_model_type不变等待输入框输入
+    # 否则更新final_model_type，并标记列表需刷新
+    selected = st.session_state["model_type_select"]
+    if selected != "自定义输入":
+        if st.session_state.get("final_model_type", "") != selected:
+            st.session_state["final_model_type"] = selected
+            st.session_state["model_list_changed"] = True
 
+def on_custom_input_change():
+    # 自定义输入框改变时，更新final_model_type并标记刷新
+    text = st.session_state.get("custom_model_input", "").strip()
+    if st.session_state.get("final_model_type", "") != text:
+        st.session_state["final_model_type"] = text
+        st.session_state["model_list_changed"] = True
 
 # 顶部按钮
 if "final_model_type" not in st.session_state:
@@ -238,6 +264,8 @@ if "uploaded_data_config" not in st.session_state:
     st.session_state["uploaded_data_config"] = None
 if "show_model_input" not in st.session_state:
     st.session_state["show_model_input"] = False
+if "model_list_changed" not in st.session_state:
+    st.session_state["model_list_changed"] = True
 
 # ----------- 展开按钮 -----------
 col1, col2 = st.columns([10, 1])
@@ -246,53 +274,81 @@ with col2:
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
 
 # ----------- 展开区域 -----------
-if st.session_state["show_model_input"]:
+if st.session_state.get("show_model_input", True):
+
     st.markdown("#### 🔧 自定义模型类型与模型包上传")
 
+    # 上传说明文件展示
+    if os.path.exists(UPLOAD_MODEL_README):
+        with open(UPLOAD_MODEL_README, "r", encoding="utf-8") as f:
+            model_readme_text = f.read()
+        with st.expander("📘 查看模型上传说明 (MODEL_readme.md)"):
+            render_scrollable_markdown(model_readme_text, height=600)
+
+    if os.path.exists(UPLOAD_DATA_README):
+        with open(UPLOAD_DATA_README, "r", encoding="utf-8") as f:
+            data_readme_text = f.read()
+        with st.expander("📗 查看数据上传说明 (DATASET_readme.md)"):
+            render_scrollable_markdown(data_readme_text, height=600)
+
+    # 获取所有模型类型
     try:
         all_model_types = get_all_model_types()
     except Exception as e:
         st.warning(f"加载模型类型失败：{e}")
         all_model_types = []
 
-    # 修改后的选择控件
     model_type_options = ["自定义输入"] + all_model_types
-    current_index = model_type_options.index(
-        st.session_state["final_model_type"] 
-        if st.session_state["final_model_type"] in model_type_options 
-        else "自定义输入"
-    )
 
-    # 主选择框 - 直接绑定到 session_state
+    # 计算当前选中index，默认选自定义输入
+    if st.session_state["final_model_type"] in all_model_types:
+        current_index = model_type_options.index(st.session_state["final_model_type"])
+    else:
+        current_index = 0
+
     selected_option = st.selectbox(
         "从已有模型类型中选择或直接输入新类型：",
         options=model_type_options,
         index=current_index,
-        key="model_type_select"  # 直接使用key绑定
+        key="model_type_select",
+        on_change=on_select_change,
     )
 
-    # 根据选择显示自定义输入框或模型信息
-    if st.session_state.model_type_select == "自定义输入":
-        st.text_input(
+    if selected_option == "自定义输入":
+        custom_input = st.text_input(
             "请输入新的模型类型",
-            value=st.session_state.final_model_type,
-            key="custom_model_input"  # 直接使用key绑定
+            value=st.session_state.get("custom_model_input", ""),
+            key="custom_model_input",
+            on_change=on_custom_input_change,
         )
-        # 立即更新final_model_type
-        st.session_state.final_model_type = st.session_state.custom_model_input
     else:
-        st.session_state.final_model_type = st.session_state.model_type_select
-        # 显示模型信息（保持不变）
-        datatype = get_data_type(st.session_state.final_model_type)
+        if "custom_model_input" in st.session_state:
+            del st.session_state["custom_model_input"]
+
+    if selected_option != "自定义输入" and st.session_state.get("final_model_type"):
+
+        if st.session_state["model_list_changed"]:
+            # 只有非自定义输入，且列表改变时，加载列表
+            models_list, datasets_list = get_models_and_data(st.session_state["final_model_type"])
+            st.session_state["models_list"] = models_list
+            st.session_state["datasets_list"] = datasets_list
+            st.session_state["model_list_changed"] = False
+
+        datatype = get_data_type(st.session_state["final_model_type"])
         st.markdown(f"**🧬 模型输入格式：** `{datatype}`")
-        models_list, datasets_list = get_models_and_data(st.session_state.final_model_type)
-        
-        if models_list:
+
+        if st.session_state.get("models_list"):
             with st.expander("📦 已有模型列表 (models_list)"):
-                st.markdown("\n".join(f"- {item}" for item in models_list))
-        if datasets_list:
+                for model_name in st.session_state["models_list"]:
+                    cols = st.columns([4, 1])
+                    cols[0].markdown(f"- {model_name}")
+                    if cols[1].button("🗑️ 删除", key=f"del_{model_name}"):
+                        delete(st.session_state["final_model_type"], model_name)
+                        st.session_state["model_list_changed"] = True
+
+        if st.session_state.get("datasets_list"):
             with st.expander("🗂️ 已有数据集列表 (datasets_list)"):
-                st.markdown("\n".join(f"- {item}" for item in datasets_list))
+                st.markdown("\n".join(f"- {item}" for item in st.session_state["datasets_list"]))
     final_model_type = st.session_state.final_model_type
 
     # ----------- 上传文件区域 -----------
@@ -320,56 +376,58 @@ if st.session_state["show_model_input"]:
     if final_model_type:
         st.success(f"🎯 选择/输入的模型类型：`{final_model_type}`")
     if st.button("🚀 提交并处理模型类型"):
-        # 获取上传的文件
-        model_zip = st.session_state.get("uploaded_model_zip")
-        model_config = st.session_state.get("uploaded_model_config")
-        data_zip = st.session_state.get("uploaded_data_zip")
-        data_config = st.session_state.get("uploaded_data_config")
+        if st.session_state.model_type_select == "自定义输入" and not st.session_state.final_model_type.strip():
+            st.warning("⚠️ 请输入自定义模型类型名称后再提交。")
+        else:# 获取上传的文件
+            model_zip = st.session_state.get("uploaded_model_zip")
+            model_config = st.session_state.get("uploaded_model_config")
+            data_zip = st.session_state.get("uploaded_data_zip")
+            data_config = st.session_state.get("uploaded_data_config")
 
-        # 检查模型组是否完整
-        model_ready = (model_zip is not None) and (model_config is not None)
-        # 检查数据组是否完整
-        data_ready = (data_zip is not None) and (data_config is not None)
+            # 检查模型组是否完整
+            model_ready = (model_zip is not None) and (model_config is not None)
+            # 检查数据组是否完整
+            data_ready = (data_zip is not None) and (data_config is not None)
 
-        # 情况1：模型组完整，data_zip 可以缺失（但 data_config 必须传）
-        condition1 = model_ready and (data_config is not None)
-        # 情况2：数据组完整，模型组可以完全缺失
-        condition2 = data_ready and (not model_ready)
-        condition3 = model_ready and data_ready
+            # 情况1：模型组完整，data_zip 可以缺失（但 data_config 必须传）
+            condition1 = model_ready and (data_config is not None)
+            # 情况2：数据组完整，模型组可以完全缺失
+            condition2 = data_ready and (not model_ready)
+            condition3 = model_ready and data_ready
 
-        if condition1 or condition2:
-            # ✅ 满足条件，调用 process
-            result = process(
-                final_model_type,
-                model_zip,
-                model_config,
-                data_zip,
-                data_config
-            )
-            
-            if result is True:
-                st.success("✅ 模型导入完成！")
+            if condition1 or condition2:
+                # ✅ 满足条件，调用 process
+                result = process(
+                    final_model_type,
+                    model_zip,
+                    model_config,
+                    data_zip,
+                    data_config
+                )
+                
+                if result is True:
+                    st.success("✅ 模型导入完成！")
+                else:
+                    st.error(result)
             else:
-                st.error(result)
-        else:
-            # ❌ 不满足条件，提示错误
-            missing = []
-            if not model_ready:
-                missing.append("模型组（需同时上传 model_zip 和 model_config）")
-            if data_config is None:
-                missing.append("data_config（必须上传）")
-            if not data_ready and (data_zip is not None or data_config is not None):
-                missing.append("数据组不完整（需同时上传 data_zip 和 data_config）")
+                # ❌ 不满足条件，提示错误
+                missing = []
+                if not model_ready:
+                    missing.append("模型组（需同时上传 model_zip 和 model_config）")
+                if data_config is None:
+                    missing.append("data_config（必须上传）")
+                if not data_ready and (data_zip is not None or data_config is not None):
+                    missing.append("数据组不完整（需同时上传 data_zip 和 data_config）")
 
-            st.error(f"""
-            ⚠️ **提交失败！**  
-            请确保符合以下条件之一：
-            - **情况1**：完整上传模型组（`model_zip` + `model_config`），并至少上传 `data_config`（`data_zip` 可选），**或**  
-            - **情况2**：完整上传数据组（`data_zip` + `data_config`），不上传模型组，**或** 
-            - **情况3**: 全部完整上传 
+                st.error(f"""
+                ⚠️ **提交失败！**  
+                请确保符合以下条件之一：
+                - **情况1**：完整上传模型组（`model_zip` + `model_config`），并至少上传 `data_config`（`data_zip` 可选），**或**  
+                - **情况2**：完整上传数据组（`data_zip` + `data_config`），不上传模型组，**或** 
+                - **情况3**: 全部完整上传 
 
 
-            """)
+                """)
 else:
     # ----------- 当 model_field 变化时，重置所有相关选择 -----------
     def on_model_field_change():
