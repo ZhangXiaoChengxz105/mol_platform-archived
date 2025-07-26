@@ -41,7 +41,7 @@ set_streamlit_upload_limit(2048)
 
 st.set_page_config(layout="wide")
 st.title("分子性质预测集成平台")
-st.markdown("根据模型类型自动加载数据集，仅在需要时显示额外参数，最终保存为配置文件并可供模型运行。")
+st.markdown("集模型和数据管理于一体，支持上传删减模型，一键式选择，处理数据，并且展示")
 
 # ----------- 配置路径 -----------
 MODEL_PATH =os.path.join(project_root,'models')
@@ -270,13 +270,13 @@ if "model_list_changed" not in st.session_state:
 # ----------- 展开按钮 -----------
 col1, col2 = st.columns([10, 1])
 with col2:
-    if st.button("➕ 添加模型类型（再点击一次以返回）"):
+    if st.button("➕ 添加数据集与模型（再点击一次以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
 
 # ----------- 展开区域 -----------
 if st.session_state.get("show_model_input", True):
 
-    st.markdown("#### 🔧 自定义模型类型与模型包上传")
+    st.markdown("#### 🔧 自定义数据集类型与模型包上传")
     st.markdown("** 注意，如果模型依赖python库，请在终端自行安装以避免冲突")
 
     # 上传说明文件展示
@@ -296,7 +296,7 @@ if st.session_state.get("show_model_input", True):
     try:
         all_model_types = get_all_model_types()
     except Exception as e:
-        st.warning(f"加载模型类型失败：{e}")
+        st.warning(f"加载数据集类型失败：{e}")
         all_model_types = []
 
     model_type_options = ["自定义输入"] + all_model_types
@@ -308,7 +308,7 @@ if st.session_state.get("show_model_input", True):
         current_index = 0
 
     selected_option = st.selectbox(
-        "从已有模型类型中选择或直接输入新类型：",
+        "从已有数据集类型中选择或直接输入新类型：",
         options=model_type_options,
         index=current_index,
         key="model_type_select",
@@ -317,7 +317,7 @@ if st.session_state.get("show_model_input", True):
 
     if selected_option == "自定义输入":
         custom_input = st.text_input(
-            "请输入新的模型类型并回车",
+            "请输入新的数据集类型并回车",
             value=st.session_state.get("custom_model_input", ""),
             key="custom_model_input",
             on_change=on_custom_input_change,
@@ -336,7 +336,7 @@ if st.session_state.get("show_model_input", True):
             st.session_state["model_list_changed"] = False
 
         datatype = get_data_type(st.session_state["final_model_type"])
-        st.markdown(f"**🧬 模型输入格式：** `{datatype}`")
+        st.markdown(f"**🧬 对应的数据输入格式：** `{datatype}`")
 
         if st.session_state.get("models_list"):
             with st.expander("📦 已有模型列表 (models_list)"):
@@ -375,10 +375,10 @@ if st.session_state.get("show_model_input", True):
 
     # ----------- 显示用户输入状态 -----------
     if final_model_type:
-        st.success(f"🎯 选择/输入的模型类型：`{final_model_type}`")
-    if st.button("🚀 提交并处理模型类型"):
+        st.success(f"🎯 选择/输入的数据集类型：`{final_model_type}`")
+    if st.button("🚀 提交并处理"):
         if st.session_state.model_type_select == "自定义输入" and not st.session_state.final_model_type.strip():
-            st.warning("⚠️ 请输入自定义模型类型名称后再提交。")
+            st.warning("⚠️ 请输入自定义数据集类型名称后再提交。")
         else:# 获取上传的文件
             model_zip = st.session_state.get("uploaded_model_zip")
             model_config = st.session_state.get("uploaded_model_config")
@@ -443,7 +443,7 @@ else:
 
     # ✅ 添加模型特征字段选择控件
     st.selectbox(
-        "模型输入特征类型 (model_field)",
+        "模型所属数据集类型",
         options=model_field_options,
         key="selected_model_field",
         on_change=on_model_field_change
@@ -476,7 +476,7 @@ else:
 
         # ✅ 多选控件（使用 session 保存 + 回调重置）
         st.multiselect(
-            "模型类型 (model)",
+            "模型名称(model)",
             options=model_options_with_all,
             key="selected_models",
             on_change=on_model_change
@@ -632,7 +632,7 @@ else:
                 st.session_state["smiles_list"] = lines
             elif uploaded_file.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
-                col = st.selectbox("选择 SMILES 所在列", df.columns)
+                col = st.selectbox("选择数据所在列", df.columns)
                 smiles = df[col].dropna().astype(str).tolist()
                 st.session_state["smiles_list"] = smiles
 
@@ -731,8 +731,8 @@ else:
 
         if history_list:
             st.markdown("---")
-            st.markdown("### 📂 历史运行记录")
-            history_labels = [f"{h['run_id']} | 模型: {h['model']} | 数据集: {h['dataset']} | 任务: {h['task']}| 数据:{h['data']}" for h in history_list]
+            st.markdown("### 📂 历史运行记录（可以在results/results下查看每一次的具体结果）")
+            history_labels = [f"{h['run_id']} | 数据集类型：{h['model_argument']}|模型: {h['model']} | 数据集: {h['dataset']} | 任务: {h['task']}| 数据:{h['data']}" for h in history_list]
             selected_index = st.selectbox("选择历史记录运行 ID 以查看结果：", options=list(range(len(history_list))), format_func=lambda i: history_labels[i])
 
             selected = history_list[selected_index]
