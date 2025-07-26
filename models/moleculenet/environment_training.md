@@ -1,0 +1,41 @@
+moleculenet 数据集， 分子指纹FP、 图像GNN、 序列化SEQ 工作流环境配置：
+# 创建并激活新环境
+    conda create -n moltrain python=3.8.20 -y
+    conda activate moltrain
+
+# SEQ部分
+# 安装PyTorch 1.12.1（与CUDA 11.3兼容，可在CUDA 11.8系统上运行）
+    pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+
+# 安装其他依赖 
+    conda install numpy=1.22.3 pandas=1.5.3 scikit-learn=0.24.2 scipy=1.6.2 -y  # for FP_RF/FP_SVM/FP_XGB, sklearn = 1.7.0
+    conda install -c conda-forge rdkit -y
+
+# 安装Python包
+    pip install pip==24.0
+# pip install pywinpty==2.0.10 # for windows
+    pip install transformers==4.6.0 pytorch-lightning==1.1.5 datasets==1.6.2 jupyterlab==3.4.0 ipywidgets==7.7.0 bertviz==1.4.0
+
+# 克隆并安装fast-transformers
+    conda install -c conda-forge cxx-compiler -y
+    git clone https://github.com/idiap/fast-transformers.git    # git clone git@github.com:idiap/fast-transformers.git
+# 替换为国内镜像源（如清华源）
+# git clone https://hub.yzuu.cf/idiap/fast-transformers.git
+# 或
+# git clone https://gitclone.com/github.com/idiap/fast-transformers.git
+    cd fast-transformers
+    pip install -e .    # 注意，windows需要MSVC，运行cl.exe以检查
+    cd ../
+# set path
+    set LD_LIBRARY_PATH=%CONDA_PREFIX%\lib;%LD_LIBRARY_PATH% # windows
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH # linux
+
+
+# GNN部分
+# 安装兼容的torch-geometric
+    pip install torch-geometric==2.2.0 torch-sparse==0.6.15 torch-scatter==2.1.0 -f https://pytorch-geometric.com/whl/torch-1.12.1+cu113.html
+
+# 安装其他依赖
+    pip install PyYAML
+    # conda install -c conda-forge rdkit -y
+    # pip install tensorboard # for finetune

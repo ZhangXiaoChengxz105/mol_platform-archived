@@ -1,9 +1,0 @@
-streamlit
-pandas
-pyyaml
-streamlit-option-menu
-matplotlib
-seaborn
-scikit-learn
-torch
-numpy

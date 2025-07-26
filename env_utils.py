@@ -109,9 +109,9 @@ def export_environment():
         # 获取Python版本
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
-        # 获取显式安装的pip包（带版本号）
+        # 获取显式安装的包（用户直接安装的包）
         result = subprocess.run(
-            ["pip", "freeze"],
+            ["pip", "list", "--not-required", "--format=freeze"],
             capture_output=True,
             text=True,
             encoding=SYSTEM_ENCODING,
@@ -121,7 +121,7 @@ def export_environment():
             print(f"❌ 获取安装包失败: {result.stderr}")
             return False
 
-        # 过滤出用户安装的包（排除依赖）
+        # 过滤出用户安装的包
         user_packages = []
         for line in result.stdout.splitlines():
             if line.strip() and not line.startswith(("-e", "@", "#")):
@@ -177,13 +177,13 @@ def create_environment():
     """根据requirements.txt创建新环境"""
     try:
         # 获取环境名称
-        env_name = input("请输入新环境名称: ").strip()
+        env_name = input("请输入新环境名称: (例如平台环境名称 molplat)").strip()
         if not env_name:
             print("❌ 环境名称不能为空")
             return False
 
         # 获取Python版本
-        python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
+        python_version = input("请输入Python版本 (例如平台python版本 3.11.8): ").strip()
         if not re.match(r"\d+\.\d+\.\d+", python_version):
             print("❌ 无效的Python版本格式")
             return False
@@ -205,12 +205,26 @@ def create_environment():
             print(f"\n❌ 环境创建失败 (返回码: {return_code})")
             return False
 
+        # 获取环境路径
+        env_path = get_conda_env_path(env_name)
+        if not env_path:
+            print("\n❌ 无法找到环境路径")
+            return False
+
+        # 确定pip可执行文件路径
+        pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
+        pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
+        
+        if not os.path.exists(pip_path):
+            print(f"\n❌ 找不到pip可执行文件: {pip_path}")
+            return False
+
         # 安装依赖
         print(f"📦 正在安装依赖...")
         print("=" * 80)
 
         return_code = run_command_realtime(
-            ["conda", "run", "-n", env_name, "pip", "install", "-r", PIP_FILE]
+            [pip_path, "install", "-r", PIP_FILE]
         )
 
         print("=" * 80)
@@ -225,7 +239,38 @@ def create_environment():
 
     except Exception as e:
         print(f"⚠️ 发生错误: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
+
+def get_conda_env_path(env_name):
+    """获取conda环境的完整路径"""
+    try:
+        result = subprocess.run(
+            ["conda", "env", "list"],
+            capture_output=True,
+            text=True,
+            encoding=SYSTEM_ENCODING,
+        )
+        
+        if result.returncode != 0:
+            print(f"❌ 获取环境列表失败: {result.stderr}")
+            return None
+            
+        # 解析环境列表输出
+        for line in result.stdout.splitlines():
+            if line.startswith('#') or not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == env_name:
+                return parts[1]
+                
+        print(f"❌ 找不到环境: {env_name}")
+        return None
+        
+    except Exception as e:
+        print(f"❌ 获取环境路径失败: {str(e)}")
+        return None
 
 def update_environment():
     """更新当前环境的依赖"""
