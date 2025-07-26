@@ -1,0 +1,26 @@
+moleculenet:
+  datasets: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+    qm8, qm9]
+  models:
+    FP:
+      NN: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+      RF: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+      SVM: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+      XGB: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+    GNN:
+      GCN: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+      GIN: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+    RNN:
+      RNN: [ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7, qm8,
+        qm9]
+    SEQ:
+      SEQ: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
+        qm8, qm9]
+test:
+  datasets: [qm7, MUV, Lipo, qm8, Tox21]
