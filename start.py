@@ -76,17 +76,12 @@ def run_streamlit():
     env["STREAMLIT_SUPPRESS_EMAIL_LOGGING"] = "true"
     env["BROWSER"] = "default"
 
-    # 创建进程组配置
-    creation_flags = 0
-    if platform.system() == "Windows":
-        creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
     
     # 启动进程并返回引用
-    return subprocess.Popen(
+    return subprocess.run(
         ["streamlit", "run", streamlit_script],
         env=env,
         start_new_session=True,  # 创建新的进程组
-        creationflags=creation_flags
     )
 
 def terminate_process(proc):

@@ -146,7 +146,7 @@ def get_conda_env_path(env_name):
     """获取conda环境的完整路径"""
     try:
         result = subprocess.run(
-            ["conda", "env", "list"],
+            ["conda", "env", "list", "--json"],
             capture_output=True,
             text=True,
             encoding=SYSTEM_ENCODING,
@@ -155,14 +155,19 @@ def get_conda_env_path(env_name):
         if result.returncode != 0:
             print(f"❌ 获取环境列表失败: {result.stderr}")
             return None
+        
+        try:
+            import json
+            envs_data = json.loads(result.stdout)
+            for env in envs_data["envs"]:
+                # 提取环境名称
+                env_base_name = os.path.basename(env)
+                if env_base_name == env_name:
+                    return env
+        except Exception as e:
+            print(f"❌ 解析环境列表失败: {str(e)}")
+            return None
             
-        for line in result.stdout.splitlines():
-            if line.startswith('#') or not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] == env_name:
-                return parts[1]
-                
         print(f"❌ 找不到环境: {env_name}")
         return None
         
@@ -285,6 +290,8 @@ def create_environment(requirements_file, env_name: str, python_version: str):
         traceback.print_exc()
         return False
 
+
+
 def update_environment(requirements_file, env_name: str = None):
     """使用指定的requirements.txt更新指定环境"""
     try:
@@ -306,22 +313,31 @@ def update_environment(requirements_file, env_name: str = None):
             return False
         print(f"🔄 正在更新环境 '{env_name}'...")
 
+
         # 获取目标环境的pip路径
         env_path = get_conda_env_path(env_name)
+        if not env_path:
+            print(f"❌ 无法获取环境 '{env_name}' 的路径")
+            return False
+            
+        # 打印环境路径用于调试
+        print(f"🔍 环境路径: {env_path}")
+
         pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
         pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
         
         if not os.path.exists(pip_path):
-            print(f"\n❌ 找不到pip可执行文件: {pip_path}")
-            return False
-
-        print(f"📦 使用的依赖文件: {req_file}")
-        print("=" * 80)
-
-        # 使用目标环境的pip进行安装
-        return_code = run_command_realtime(
-            [pip_path, "install", "--upgrade", "-r", str(req_file)]
-        )
+            # 尝试使用conda run作为备选方案
+            print(f"⚠️ 找不到pip可执行文件: {pip_path}")
+            print("🔄 尝试使用conda run执行命令...")
+            return_code = run_command_realtime(
+                ["conda", "run", "-n", env_name, "pip", "install", "--upgrade", "-r", str(req_file)]
+            )
+        else:
+            # 使用目标环境的pip进行安装
+            return_code = run_command_realtime(
+                [pip_path, "install", "--upgrade", "-r", str(req_file)]
+            )
 
         print("=" * 80)
 
@@ -334,6 +350,8 @@ def update_environment(requirements_file, env_name: str = None):
 
     except Exception as e:
         print(f"⚠️ 发生错误: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def main():
