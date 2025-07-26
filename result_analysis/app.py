@@ -664,11 +664,17 @@ else:
         st.success("配置已保存！")
 
         try:
+            # 运行子进程并捕获输出
             result = subprocess.run(
                 ["python", RUN_SCRIPT_PATH],
-                check=True  # 自动抛出异常如果失败
+                capture_output=True,  # 捕获标准输出和错误输出
+                text=True,            # 以文本形式返回
+                encoding='utf-8',     # 指定编码
+                check=True            # 如果返回非零状态码则引发异常
             )
             st.success("✅ 模型运行完成！")
+            
+            # 处理成功运行后的逻辑...
             result_path = os.path.join(project_root,'results','results')
             run_id,latest_run_path = get_latest_run_folder(result_path)
             history_record = {
@@ -700,10 +706,24 @@ else:
             else:
                 st.warning("未找到任何 runXX 结果目录。")
 
-        except subprocess.CalledProcessError:
-            st.error("❌ 模型运行失败！")
+        except subprocess.CalledProcessError as e:
+            # 当命令返回非零状态码时，显示详细错误
+            error_msg = f"❌ 模型运行失败 (返回码: {e.returncode})!\n\n" 
+            error_msg += "=== 错误详情 ===\n"
+            error_msg += e.stderr + "\n"
+            error_msg += "请检查模型环境是否正确配置 （model: README.md）"
+            st.error(error_msg)
+            
+            # 在终端打印完整错误（用于调试）
+            print("="*80)
+            print(f"子进程详细错误信息 (返回码 {e.returncode}):")
+            print(e.stderr)
+            print("="*80)
+            
         except Exception as e:
+            # 其他异常
             st.error(f"运行出错：{e}")
+            print(f"运行出错：{e}")
 
     if os.path.exists(HISTORY_PATH):
         with open(HISTORY_PATH, "r", encoding="utf-8") as f:
