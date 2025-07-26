@@ -1,340 +1,302 @@
-import subprocess
-import yaml
 import argparse
+import subprocess
 import sys
 import os
 import platform
 import re
-from datetime import datetime
+import datetime
 from pathlib import Path
 
 # 全局配置
-ENVIRONMENT_FILE = "environment.yaml"
 PIP_FILE = "requirements.txt"
+INSTALL_SCRIPT = "install_environment.sh"
 
-def read_yaml_with_utf8(file_path):
-    """以UTF-8编码读取YAML文件，处理可能的BOM头"""
+def get_system_encoding():
+    """获取系统默认编码"""
     try:
-        with open(file_path, 'r', encoding='utf-8-sig') as f:
-            return yaml.safe_load(f)
-    except Exception as e:
-        print(f"❌ 读取文件失败: {str(e)}")
-        return None
+        # 简化编码检测
+        if platform.system() == "Windows":
+            return "utf-8"  # Windows通常使用utf-8
+        return sys.getdefaultencoding() or "utf-8"
+    except:
+        return "utf-8"
 
-def create_environment():
-    """根据environment.yml创建新环境"""
+SYSTEM_ENCODING = get_system_encoding()
+
+def run_command_realtime(cmd):
+    """运行命令并实时输出到终端"""
     try:
-        if not Path(ENVIRONMENT_FILE).exists():
-            print(f"❌ 错误: {ENVIRONMENT_FILE} 文件不存在")
-            return False
-        
-        env_data = read_yaml_with_utf8(ENVIRONMENT_FILE)
-        if env_data is None:
-            return False
-            
-        env_name = env_data.get('name', '')
-        if not env_name:
-            print("❌ 无法确定环境名称")
-            return False
-        
-        print(f"🛠️ 正在创建环境 '{env_name}'...")
-        
-        result = subprocess.run(
-            ["conda", "env", "create", "--file", ENVIRONMENT_FILE],
+        process = subprocess.Popen(
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8'
+            encoding=SYSTEM_ENCODING,
+            errors="replace",
+            bufsize=1,
+            shell=platform.system() == "Windows",
         )
-        
-        if result.returncode == 0:
-            print(f"✅ 环境 '{env_name}' 创建成功!")
-            print(f"👉 使用以下命令激活环境: conda activate {env_name}")
-            print("="*60)
-            print(result.stdout)
-            return True
-        else:
-            print(f"❌ 创建失败:\n{result.stderr}")
-            print("="*60)
-            print(result.stdout)
-            return False
-            
-    except Exception as e:
-        print(f"⚠️ 发生错误: {str(e)}")
-        return False
 
-def update_environment():
-    """根据environment.yml更新现有环境"""
-    try:
-        if not Path(ENVIRONMENT_FILE).exists():
-            print(f"❌ 错误: {ENVIRONMENT_FILE} 文件不存在")
-            return False
-        
-        env_data = read_yaml_with_utf8(ENVIRONMENT_FILE)
-        if env_data is None:
-            return False
-            
-        env_name = env_data.get('name', '')
-        if not env_name:
-            print("❌ 无法确定环境名称")
-            return False
-        
-        print(f"🔄 正在更新环境 '{env_name}'...")
-        
-        result = subprocess.run(
-            ["conda", "env", "update", "--name", env_name, "--file", ENVIRONMENT_FILE, "--prune"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8'
-        )
-        
-        if result.returncode == 0:
-            print("✅ 环境更新成功!")
-            print("="*60)
-            print(result.stdout)
-            return True
-        else:
-            print(f"❌ 更新失败:\n{result.stderr}")
-            print("="*60)
-            print(result.stdout)
-            return False
-            
+        # 实时输出处理
+        while True:
+            output = process.stdout.readline()
+            if output == "" and process.poll() is not None:
+                break
+            if output:
+                print(f">>> {output.strip()}")
+
+        # 检查错误
+        stderr = process.stderr.read()
+        if stderr:
+            print(f"!!! {stderr.strip()}")
+
+        return process.returncode
+
     except Exception as e:
-        print(f"⚠️ 发生错误: {str(e)}")
-        return False
+        print(f"❌ 执行命令失败: {str(e)}")
+        return -1
 
 def get_current_env_name():
-    """获取当前激活的环境名称（增强版本）"""
-    try:
-        # 方法1: 使用CONDA_DEFAULT_ENV环境变量（最可靠）
-        default_env = os.environ.get("CONDA_DEFAULT_ENV")
-        if default_env:
-            return default_env
-        
-        # 方法2: 检查CONDA_PREFIX环境变量
-        conda_prefix = os.environ.get("CONDA_PREFIX")
-        if conda_prefix:
-            # 环境名称通常是路径的最后一部分
-            return os.path.basename(conda_prefix)
-        
-        # 方法3: 使用conda info命令（备选方案）
-        try:
-            env_info = subprocess.check_output(
-                "conda info --envs", 
-                shell=True, 
-                text=True,
-                encoding='utf-8',
-                stderr=subprocess.DEVNULL
-            )
-            for line in env_info.splitlines():
-                if line.startswith('*'):
-                    # 提取环境名称（星号后的第一个单词）
-                    parts = line.split()
-                    if len(parts) > 1:
-                        return parts[1] if parts[0] == '*' else parts[0]
-        except:
-            pass
-        
-        return None
-        
-    except Exception as e:
-        print(f"⚠️ 获取环境名称时出错: {str(e)}")
-        return None
+    """获取当前激活的环境名称"""
+    # 方法1: 检查标准环境变量
+    env_name = os.environ.get("CONDA_DEFAULT_ENV") or os.environ.get("VIRTUAL_ENV")
+    if env_name:
+        return env_name.split(os.sep)[-1]  # 只取环境名部分
 
-def export_environment(platform_independent=True, include_pip=False):
-    """导出兼容性环境配置"""
+    # 方法2: 使用conda命令查询
+    try:
+        result = subprocess.run(
+            ["conda", "info", "--envs"],
+            capture_output=True,
+            text=True,
+            encoding=SYSTEM_ENCODING,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if "*" in line:
+                    parts = line.split()
+                    return parts[-1] if len(parts) > 1 else parts[0]
+    except:
+        pass
+
+    # 方法3: 使用pip查看
+    try:
+        result = subprocess.run(
+            ["pip", "-V"],
+            capture_output=True,
+            text=True,
+            encoding=SYSTEM_ENCODING,
+        )
+        if result.returncode == 0 and "site-packages" in result.stdout:
+            match = re.search(r"/(\w+)/lib/python", result.stdout)
+            if match:
+                return match.group(1)
+    except:
+        pass
+
+    return None
+
+def export_environment():
+    """导出当前环境的pip依赖"""
     try:
         env_name = get_current_env_name()
         if not env_name:
             print("❌ 无法确定当前激活的环境")
-            print("💡 请确保: ")
-            print("1. 你已激活Conda环境")
-            print("2. 在正确的终端运行此脚本（如Anaconda Prompt）")
-            print("3. Conda已正确安装并添加到系统路径")
+            print("💡 请确保在Conda环境中运行此命令")
             return False
-        
+
         print(f"📤 正在导出环境: {env_name}")
+
+        # 获取Python版本
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+        # 获取显式安装的pip包（带版本号）
+        result = subprocess.run(
+            ["pip", "freeze"],
+            capture_output=True,
+            text=True,
+            encoding=SYSTEM_ENCODING,
+        )
+
+        if result.returncode != 0:
+            print(f"❌ 获取安装包失败: {result.stderr}")
+            return False
+
+        # 过滤出用户安装的包（排除依赖）
+        user_packages = []
+        for line in result.stdout.splitlines():
+            if line.strip() and not line.startswith(("-e", "@", "#")):
+                # 移除平台限制 (如: ; sys_platform == 'win32')
+                if ";" in line:
+                    line = line.split(";")[0].strip()
+                user_packages.append(line)
+
+        # 写入requirements.txt
+        with open(PIP_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(user_packages))
+
+        print(f"✅ Pip依赖已保存到: {PIP_FILE}")
+
+        # 生成安装脚本
+        script_name = INSTALL_SCRIPT
+        if platform.system() == "Windows":
+            script_name = "install_environment.bat"
+
+        with open(script_name, "w", encoding="utf-8") as f:
+            if platform.system() == "Windows":
+                f.write(f"@echo off\n")
+                f.write(f":: 自动生成的环境安装脚本 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})\n")
+                f.write(f"conda create -n {env_name} python={python_version} -y\n")
+                f.write(f"call conda activate {env_name}\n")
+                f.write(f"pip install -r {PIP_FILE}\n")
+                f.write(f"echo 环境安装完成! 使用以下命令激活: conda activate {env_name}\n")
+            else:
+                f.write("#!/bin/bash\n")
+                f.write(f"# 自动生成的环境安装脚本 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})\n")
+                f.write(f"conda create -n {env_name} python={python_version} -y\n")
+                f.write(f"conda activate {env_name}\n")
+                f.write(f"pip install -r {PIP_FILE}\n")
+                f.write(f"echo \"环境安装完成! 使用以下命令激活: conda activate {env_name}\"\n")
         
-        # 1. 获取基础环境信息
-        if platform_independent:
-            # 跨平台导出：只包含包名和版本，不包含构建号
-            print("🔧 使用跨平台兼容模式导出...")
-            result = subprocess.run(
-                ["conda", "list", "--export"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8'
-            )
-            
-            if result.returncode != 0:
-                print(f"❌ 获取conda包列表失败: {result.stderr}")
-                return False
-                
-            # 处理包列表
-            packages = []
-            for line in result.stdout.splitlines():
-                if "=" in line and not line.startswith("#"):
-                    # 去除构建号和平台信息
-                    parts = line.split("=")
-                    if len(parts) >= 2:
-                        # 只保留包名和版本号
-                        pkg_entry = f"{parts[0]}={parts[1]}"
-                        # 如果包名中包含平台信息(如::win-64)，则去除
-                        if "::" in pkg_entry:
-                            pkg_entry = pkg_entry.split("::")[-1]
-                        packages.append(pkg_entry)
-            
-            env_config = {
-                "name": env_name,
-                "channels": ["conda-forge", "defaults"],
-                "dependencies": packages
-            }
-        else:
-            # 原始导出方式（包含平台信息）
-            print("🔧 使用完整模式导出（包含平台信息）...")
-            result = subprocess.run(
-                ["conda", "env", "export"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8'
-            )
-            
-            if result.returncode != 0:
-                print(f"❌ 导出环境失败: {result.stderr}")
-                return False
-                
-            env_config = yaml.safe_load(result.stdout)
-        
-        # 2. 添加元数据
-        env_config["metadata"] = {
-            "exported": datetime.now().isoformat(),
-            "platform": platform.platform(),
-            "python_version": sys.version,
-            "platform_independent": platform_independent,
-            "pip_included": include_pip
-        }
-        
-        # 3. 处理pip依赖
-        if include_pip:
-            print("🔍 收集pip安装的包...")
-            pip_result = subprocess.run(
-                ["pip", "freeze"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8'
-            )
-            
-            if pip_result.returncode != 0:
-                print(f"❌ 获取pip包列表失败: {pip_result.stderr}")
-                return False
-                
-            pip_packages = pip_result.stdout.splitlines()
-            
-            # 过滤掉非标准包（如可编辑安装或路径依赖）
-            clean_pip_packages = []
-            for pkg in pip_packages:
-                # 跳过可编辑安装和路径依赖
-                if pkg.startswith("-e ") or "@ file" in pkg:
-                    print(f"⚠️ 跳过特殊依赖: {pkg}")
-                    continue
-                # 只保留包名和版本
-                if "==" in pkg:
-                    clean_pip_packages.append(pkg.split("==")[0] + "==" + pkg.split("==")[1])
-                else:
-                    clean_pip_packages.append(pkg)
-            
-            # 创建独立的pip配置节
-            pip_section = {"pip": clean_pip_packages}
-            env_config["dependencies"].append(pip_section)
-            
-            # 单独保存pip依赖
-            with open(PIP_FILE, "w", encoding='utf-8') as f:
-                f.write("\n".join(clean_pip_packages))
-            print(f"💾 Pip依赖已保存到: {PIP_FILE}")
-        
-        # 4. 保存环境文件
-        with open(ENVIRONMENT_FILE, "w", encoding='utf-8') as f:
-            yaml.dump(env_config, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
-        
-        print(f"✅ 环境配置已保存到: {ENVIRONMENT_FILE}")
-        print("="*60)
-        print("💡 新用户安装指南:")
-        print(f"1. 创建环境: conda env create -f {ENVIRONMENT_FILE}")
-        print(f"2. 激活环境: conda activate {env_name}")
-        if include_pip:
-            print(f"3. (可选)安装pip依赖: pip install -r {PIP_FILE}")
-        print("="*60)
-        
-        # 打印导出内容预览
-        print("📄 导出文件预览 (前20行):")
-        with open(ENVIRONMENT_FILE, "r", encoding='utf-8') as f:
-            for i, line in enumerate(f):
-                if i < 20:
-                    print(line.rstrip())
-                else:
-                    print("...")
-                    break
-        
+        # 设置执行权限 (Linux/macOS)
+        if platform.system() != "Windows":
+            os.chmod(script_name, 0o755)
+
+        print(f"✅ 安装脚本已生成: {script_name}")
+        print("\n💡 在新环境中使用以下命令安装:")
+        print(f"   {'双击运行' if platform.system() == 'Windows' else 'bash'} {script_name}")
+
         return True
-        
+
     except Exception as e:
         print(f"❌ 导出失败: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
 
+def create_environment():
+    """根据requirements.txt创建新环境"""
+    try:
+        # 获取环境名称
+        env_name = input("请输入新环境名称: ").strip()
+        if not env_name:
+            print("❌ 环境名称不能为空")
+            return False
+
+        # 获取Python版本
+        python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
+        if not re.match(r"\d+\.\d+\.\d+", python_version):
+            print("❌ 无效的Python版本格式")
+            return False
+
+        # 检查requirements.txt是否存在
+        if not Path(PIP_FILE).exists():
+            print(f"❌ 错误: {PIP_FILE} 文件不存在")
+            return False
+
+        # 创建环境
+        print(f"🛠️ 正在创建环境 '{env_name}'...")
+        print("=" * 80)
+
+        return_code = run_command_realtime(
+            ["conda", "create", "-n", env_name, f"python={python_version}", "-y"]
+        )
+
+        if return_code != 0:
+            print(f"\n❌ 环境创建失败 (返回码: {return_code})")
+            return False
+
+        # 安装依赖
+        print(f"📦 正在安装依赖...")
+        print("=" * 80)
+
+        return_code = run_command_realtime(
+            ["conda", "run", "-n", env_name, "pip", "install", "-r", PIP_FILE]
+        )
+
+        print("=" * 80)
+
+        if return_code == 0:
+            print(f"\n✅ 环境 '{env_name}' 创建并配置成功!")
+            print(f"👉 使用以下命令激活环境: conda activate {env_name}")
+            return True
+        else:
+            print(f"\n❌ 依赖安装失败 (返回码: {return_code})")
+            return False
+
+    except Exception as e:
+        print(f"⚠️ 发生错误: {str(e)}")
+        return False
+
+def update_environment():
+    """更新当前环境的依赖"""
+    try:
+        env_name = get_current_env_name()
+        if not env_name:
+            print("❌ 无法确定当前激活的环境")
+            return False
+
+        print(f"🔄 正在更新环境 '{env_name}'...")
+
+        # 更新依赖
+        return_code = run_command_realtime(
+            ["pip", "install", "--upgrade", "-r", PIP_FILE]
+        )
+
+        if return_code == 0:
+            print("\n✅ 环境更新成功!")
+            return True
+        else:
+            print(f"\n❌ 更新失败 (返回码: {return_code})")
+            return False
+
+    except Exception as e:
+        print(f"⚠️ 发生错误: {str(e)}")
+        return False
+
 def main():
     parser = argparse.ArgumentParser(
-        description="环境管理工具",
-        formatter_class=argparse.RawTextHelpFormatter
+        description="Python环境管理工具",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest='command', help='可用命令')
-    
-    # 创建命令
-    create_parser = subparsers.add_parser('create', help='创建新环境')
-    
-    # 更新命令
-    update_parser = subparsers.add_parser('update', help='更新当前环境')
-    
+    subparsers = parser.add_subparsers(dest="command", help="可用命令")
+
     # 导出命令
-    export_parser = subparsers.add_parser('export', help='导出当前环境配置')
-    export_parser.add_argument('--full', action='store_true', 
-                              help='导出完整环境（包含平台特定信息）')
-    export_parser.add_argument('--pip', action='store_true', 
-                              help='导出pip依赖')
-    
+    subparsers.add_parser("export", help="导出当前环境配置")
+
+    # 创建命令
+    subparsers.add_parser("create", help="创建新环境")
+
+    # 更新命令
+    subparsers.add_parser("update", help="更新当前环境")
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
-    try:
-        if args.command == 'create':
-            success = create_environment()
-        elif args.command == 'update':
-            success = update_environment()
-        elif args.command == 'export':
-            success = export_environment(
-                platform_independent=not args.full, 
-                include_pip=args.pip
-            )
-        else:
-            print(f"未知命令: {args.command}")
-            sys.exit(1)
-        
-        sys.exit(0 if success else 1)
-    
-    except KeyboardInterrupt:
-        print("\n操作已取消")
+
+    print("\n" + "=" * 60)
+    print(f"🚀 执行命令: {args.command.upper()}")
+    print("=" * 60)
+
+    if args.command == "export":
+        success = export_environment()
+    elif args.command == "create":
+        success = create_environment()
+    elif args.command == "update":
+        success = update_environment()
+    else:
+        print(f"❌ 未知命令: {args.command}")
         sys.exit(1)
 
+    print("\n" + "=" * 60)
+    print(f"{'✅ 操作成功' if success else '❌ 操作失败'}")
+    print("=" * 60)
+
+    sys.exit(0 if success else 1)
+
 if __name__ == "__main__":
-    print("="*60)
-    print("Conda环境管理工具")
-    print("="*60)
+    print("\n" + "=" * 60)
+    print("Python环境管理工具")
+    print("=" * 60)
     main()
