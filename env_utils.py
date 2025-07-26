@@ -8,6 +8,7 @@ import datetime
 from pathlib import Path
 import signal
 import psutil  # 添加psutil用于进程树管理
+import json  # 添加json模块解析conda输出
 
 # 全局默认配置
 DEFAULT_ENV_NAME = "molplat"
@@ -157,7 +158,6 @@ def get_conda_env_path(env_name):
             return None
         
         try:
-            import json
             envs_data = json.loads(result.stdout)
             for env in envs_data["envs"]:
                 # 提取环境名称
@@ -231,16 +231,71 @@ def create_environment(requirements_file, env_name: str, python_version: str):
             print(f"❌ 错误: {req_file} 文件不存在")
             return False
 
-        env_name = input(f"请输入新环境名称(默认{DEFAULT_ENV_NAME}): ").strip() if env_name is None else env_name
-        if not env_name:
-            print("采用默认环境名称: ", DEFAULT_ENV_NAME)
-            env_name = DEFAULT_ENV_NAME
+        # 处理环境名称输入
+        if env_name is None:
+            env_name = input(f"请输入新环境名称(默认{DEFAULT_ENV_NAME}): ").strip()
+            if not env_name:
+                env_name = DEFAULT_ENV_NAME
+                print("采用默认环境名称: ", DEFAULT_ENV_NAME)
+        else:
+            print(f"使用指定环境名称: {env_name}")
 
-        python_version = input("请输入Python版本 (例如 3.11.8): ").strip() if python_version is None else python_version
-        if not python_version:
-            print("采用默认Python版本: ", DEFAULT_PYTHON_VERSION)
-            python_version = DEFAULT_PYTHON_VERSION
-        elif not re.match(r"\d+\.\d+\.\d+", python_version):
+        # 检查环境是否已存在
+        env_path = get_conda_env_path(env_name)
+        if env_path:
+            print(f"⚠️ 环境 '{env_name}' 已存在！")
+            print("请选择操作:")
+            print("1. 覆盖并重新创建 (将删除现有环境)")
+            print("2. 更新现有环境")
+            print("3. 取消操作")
+            choice = input("请输入选择 (1/2/3): ").strip()
+            
+            if choice == '1':
+                # 覆盖创建 - 先删除现有环境
+                print(f"🗑️ 删除环境 {env_name}...")
+                return_code = run_command_realtime(["conda", "remove", "--name", env_name, "--all", "-y"])
+                if return_code != 0:
+                    print("❌ 删除环境失败，操作取消")
+                    return False
+            elif choice == '2':
+                # 更新现有环境
+                print(f"🔄 更新环境 {env_name}...")
+                pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
+                pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
+                
+                if os.path.exists(pip_path):
+                    # 使用目标环境的pip进行安装
+                    return_code = run_command_realtime(
+                        [pip_path, "install", "-r", str(req_file)]
+                    )
+                else:
+                    # 尝试使用conda run
+                    print(f"⚠️ 找不到pip可执行文件: {pip_path}")
+                    print("🔄 尝试使用conda run执行命令...")
+                    return_code = run_command_realtime(
+                        ["conda", "run", "-n", env_name, "pip", "install", "-r", str(req_file)]
+                    )
+                
+                if return_code == 0:
+                    print(f"✅ 环境 '{env_name}' 更新成功!")
+                    return True
+                else:
+                    print(f"❌ 依赖安装失败 (返回码: {return_code})")
+                    return False
+            else:
+                print("操作取消")
+                return False
+
+        # 处理Python版本输入
+        if python_version is None:
+            python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
+            if not python_version:
+                python_version = DEFAULT_PYTHON_VERSION
+                print("采用默认Python版本: ", DEFAULT_PYTHON_VERSION)
+        else:
+            print(f"使用指定Python版本: {python_version}")
+        
+        if not re.match(r"\d+\.\d+\.\d+", python_version):
             print("❌ 无效的Python版本格式")
             return False
 
@@ -290,8 +345,6 @@ def create_environment(requirements_file, env_name: str, python_version: str):
         traceback.print_exc()
         return False
 
-
-
 def update_environment(requirements_file, env_name: str = None):
     """使用指定的requirements.txt更新指定环境"""
     try:
@@ -309,10 +362,15 @@ def update_environment(requirements_file, env_name: str = None):
         # 检查指定环境是否存在
         env_path = get_conda_env_path(env_name)
         if not env_path:
-            print(f"❌ 环境 '{env_name}' 不存在")
-            return False
+            choice = input("是否创建该环境？(y/n): ").strip().lower()
+            if choice == 'y':
+                # 创建环境
+                print(f"🛠️ 开始创建环境 {env_name}...")
+                return create_environment(requirements_file, env_name, DEFAULT_PYTHON_VERSION)
+            else:
+                print("操作取消")
+                return False
         print(f"🔄 正在更新环境 '{env_name}'...")
-
 
         # 获取目标环境的pip路径
         env_path = get_conda_env_path(env_name)

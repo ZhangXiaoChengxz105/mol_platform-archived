@@ -25,6 +25,7 @@ def check_initialization():
                 print("环境初始化完成！")
             else:
                 print("环境初始化失败，请手动检查environment.md")
+                exit(1)
         else:
             print("跳过初始化，直接启动应用")
     else:
@@ -47,7 +48,7 @@ def perform_initialization():
         # 直接调用env_utils中的函数创建环境
         success = create_environment(
             requirements_file="requirements.txt",
-            env_name="test",
+            env_name=None,
             python_version="3.11.8"
         )
         
@@ -78,8 +79,10 @@ def run_streamlit():
 
     
     # 启动进程并返回引用
+    env_name = input("指定平台运行环境（默认molplat）: ").strip().lower()
+    env_name = env_name if env_name else "molplat"
     return subprocess.run(
-        ["streamlit", "run", streamlit_script],
+        ["conda", "run", "-n", "env_name", "streamlit", "run", streamlit_script],
         env=env,
         start_new_session=True,  # 创建新的进程组
     )
