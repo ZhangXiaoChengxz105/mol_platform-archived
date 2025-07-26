@@ -138,7 +138,7 @@ def export_environment(output_file):
         traceback.print_exc()
         return False
 
-def create_environment(requirements_file):
+def create_environment(requirements_file, env_name: str, python_version: str):
     """根据指定的requirements.txt创建新环境"""
     try:
         req_file = Path(requirements_file)
@@ -146,13 +146,16 @@ def create_environment(requirements_file):
             print(f"❌ 错误: {req_file} 文件不存在")
             return False
 
-        env_name = input("请输入新环境名称: ").strip()
+        env_name = input(f"请输入新环境名称(默认{DEFAULT_ENV_NAME}): ").strip() if env_name is None else env_name
         if not env_name:
-            print("❌ 环境名称不能为空")
-            return False
+            print("采用默认环境名称: ", DEFAULT_ENV_NAME)
+            env_name = DEFAULT_ENV_NAME
 
-        python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
-        if not re.match(r"\d+\.\d+\.\d+", python_version):
+        python_version = input("请输入Python版本 (例如 3.11.8): ").strip() if python_version is None else python_version
+        if not python_version:
+            print("采用默认Python版本: ", DEFAULT_PYTHON_VERSION)
+            python_version = DEFAULT_PYTHON_VERSION
+        elif not re.match(r"\d+\.\d+\.\d+", python_version):
             print("❌ 无效的Python版本格式")
             return False
 
@@ -355,7 +358,7 @@ def main():
     if args.command == "export":
         success = export_environment(args.output)
     elif args.command == "create":
-        success = create_environment(args.requirements)
+        success = create_environment(args.requirements, args.env_name, args.python_version)
     elif args.command == "update":
         success = update_environment(args.requirements)
     else:
