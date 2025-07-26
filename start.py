@@ -2,7 +2,7 @@ import os
 import platform
 import signal
 import sys
-from env_utils import create_environment, update_environment, get_current_env_name
+from env_utils import create_environment, update_environment, get_current_env_name, get_conda_env_path, run_command_realtime
 import subprocess
 
 def check_initialization():
@@ -68,7 +68,7 @@ def perform_update():
         print(f"更新过程中出错: {e}")
         return False
 
-def run_streamlit():
+def run_streamlit(env_name):
     """启动Streamlit应用并返回进程对象"""
     streamlit_script = os.path.join("result_analysis", "app.py")
     
@@ -77,12 +77,18 @@ def run_streamlit():
     env["STREAMLIT_SUPPRESS_EMAIL_LOGGING"] = "true"
     env["BROWSER"] = "default"
 
+    # 检查环境是否存在
+    env_path = get_conda_env_path(env_name)
+    if not env_path:
+        print(f"❌ 环境 '{env_name}' 不存在！")
+        print("请指定正确的环境名称(使用初始化创建的环境名)")
+        return None
     
+    print(f"🚀 在环境 '{env_name}' 中启动应用...")
+
     # 启动进程并返回引用
-    env_name = input("指定平台运行环境（默认molplat）: ").strip().lower()
-    env_name = env_name if env_name else "molplat"
-    return subprocess.run(
-        ["conda", "run", "-n", "env_name", "streamlit", "run", streamlit_script],
+    return subprocess.Popen(
+        ["conda", "run", "-n", f"{env_name}", "streamlit", "run", streamlit_script],
         env=env,
         start_new_session=True,  # 创建新的进程组
     )
@@ -112,8 +118,11 @@ if __name__ == "__main__":
     # 检查并执行初始化/更新
     check_initialization()
     
+    env_name = input("指定平台运行环境（默认molplat）: ").strip().lower()
+    env_name = env_name if env_name else "molplat"
+
     # 启动主应用
-    streamlit_proc = run_streamlit()
+    streamlit_proc = run_streamlit(env_name)
     
     # 注册信号处理
     def handle_exit(signum, frame):
