@@ -2,9 +2,9 @@
 ## env_utils.py
 使用示例:
 
-    导出环境: env_utils.py export (-r export_req.txt -e env_name -p python_version)\n
-    创建环境: env_utils.py create (-r create_req.txt)\n
-    更新环境: env_utils.py update (-r update_req.txt)\n
+    导出环境: env_utils.py export (-r export_req.txt -e env_name -p python_version)
+    创建环境: env_utils.py create (-r create_req.txt)
+    更新环境: env_utils.py update (-r update_req.txt)
     默认路径: -r requirements.txt
     默认环境名：-e molplat
     默认Python版本: -p 3.11.8
