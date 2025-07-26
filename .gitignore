@@ -15,3 +15,4 @@ __pycache__/
 *.joblib
 *.zip
 /fast-transformers
+.streamlit_init_flag

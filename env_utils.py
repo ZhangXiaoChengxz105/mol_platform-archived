@@ -6,11 +6,16 @@ import platform
 import re
 import datetime
 from pathlib import Path
+import signal
+import psutil  # 添加psutil用于进程树管理
 
 # 全局默认配置
 DEFAULT_ENV_NAME = "molplat"
 DEFAULT_PYTHON_VERSION = "3.11.8"
 DEFAULT_PIP_FILE = "requirements.txt"
+
+# 全局变量跟踪活动进程
+active_processes = []
 
 def get_system_encoding():
     """获取系统默认编码"""
@@ -23,9 +28,47 @@ def get_system_encoding():
 
 SYSTEM_ENCODING = get_system_encoding()
 
+def terminate_child_processes():
+    """终止所有活动子进程"""
+    global active_processes
+    for proc in active_processes:
+        try:
+            if proc.poll() is None:  # 检查进程是否仍在运行
+                parent = psutil.Process(proc.pid)
+                children = parent.children(recursive=True)
+                for child in children:
+                    try:
+                        child.terminate()
+                    except:
+                        pass
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=3)
+                except (subprocess.TimeoutExpired, psutil.NoSuchProcess):
+                    pass
+        except:
+            pass
+    active_processes = []
+
+def signal_handler(signum, frame):
+    """处理终止信号"""
+    print(f"\n接收到终止信号 ({signum})，清理子进程...")
+    terminate_child_processes()
+    sys.exit(1)
+
 def run_command_realtime(cmd):
     """运行命令并实时输出到终端"""
+    global active_processes
+    
     try:
+        # 创建新进程组配置
+        creation_flags = 0
+        if platform.system() == "Windows":
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            # Unix系统需要设置新的会话组
+            cmd = ["setsid"] + cmd if "setsid" in subprocess.check_output(["which", "setsid"]).decode() else cmd
+        
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -34,8 +77,13 @@ def run_command_realtime(cmd):
             errors="replace",
             bufsize=1,
             shell=platform.system() == "Windows",
+            start_new_session=True,
+            creationflags=creation_flags
         )
-
+        
+        # 添加到活动进程列表
+        active_processes.append(process)
+        
         while True:
             output = process.stdout.readline()
             if output == "" and process.poll() is not None:
@@ -47,6 +95,10 @@ def run_command_realtime(cmd):
         if stderr:
             print(f"!!! {stderr.strip()}")
 
+        # 从活动进程列表中移除
+        if process in active_processes:
+            active_processes.remove(process)
+            
         return process.returncode
 
     except Exception as e:
@@ -89,6 +141,34 @@ def get_current_env_name():
         pass
 
     return None
+
+def get_conda_env_path(env_name):
+    """获取conda环境的完整路径"""
+    try:
+        result = subprocess.run(
+            ["conda", "env", "list"],
+            capture_output=True,
+            text=True,
+            encoding=SYSTEM_ENCODING,
+        )
+        
+        if result.returncode != 0:
+            print(f"❌ 获取环境列表失败: {result.stderr}")
+            return None
+            
+        for line in result.stdout.splitlines():
+            if line.startswith('#') or not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == env_name:
+                return parts[1]
+                
+        print(f"❌ 找不到环境: {env_name}")
+        return None
+        
+    except Exception as e:
+        print(f"❌ 获取环境路径失败: {str(e)}")
+        return None
 
 def export_environment(output_file):
     """导出当前环境的pip依赖到指定文件"""
@@ -205,53 +285,42 @@ def create_environment(requirements_file, env_name: str, python_version: str):
         traceback.print_exc()
         return False
 
-def get_conda_env_path(env_name):
-    """获取conda环境的完整路径"""
+def update_environment(requirements_file, env_name: str = None):
+    """使用指定的requirements.txt更新指定环境"""
     try:
-        result = subprocess.run(
-            ["conda", "env", "list"],
-            capture_output=True,
-            text=True,
-            encoding=SYSTEM_ENCODING,
-        )
-        
-        if result.returncode != 0:
-            print(f"❌ 获取环境列表失败: {result.stderr}")
-            return None
-            
-        for line in result.stdout.splitlines():
-            if line.startswith('#') or not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] == env_name:
-                return parts[1]
-                
-        print(f"❌ 找不到环境: {env_name}")
-        return None
-        
-    except Exception as e:
-        print(f"❌ 获取环境路径失败: {str(e)}")
-        return None
-
-def update_environment(requirements_file):
-    """使用指定的requirements.txt更新当前环境"""
-    try:
-        env_name = get_current_env_name()
-        if not env_name:
-            print("❌ 无法确定当前激活的环境")
-            return False
-
         req_file = Path(requirements_file)
         if not req_file.exists():
             print(f"❌ 错误: {req_file} 文件不存在")
             return False
 
-        print(f"🔄 正在更新当前环境 '{env_name}'...")
+        # 如果没有指定环境名称，使用当前环境
+        if env_name is None:
+            env_name = input(f"请输入更新环境名称(默认{DEFAULT_ENV_NAME}): ").strip() if env_name is None else env_name
+            if not env_name:
+                env_name = DEFAULT_ENV_NAME
+            print(f"🔄 更新默认环境 '{env_name}'...")
+        # 检查指定环境是否存在
+        env_path = get_conda_env_path(env_name)
+        if not env_path:
+            print(f"❌ 环境 '{env_name}' 不存在")
+            return False
+        print(f"🔄 正在更新环境 '{env_name}'...")
+
+        # 获取目标环境的pip路径
+        env_path = get_conda_env_path(env_name)
+        pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
+        pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
+        
+        if not os.path.exists(pip_path):
+            print(f"\n❌ 找不到pip可执行文件: {pip_path}")
+            return False
+
         print(f"📦 使用的依赖文件: {req_file}")
         print("=" * 80)
 
+        # 使用目标环境的pip进行安装
         return_code = run_command_realtime(
-            ["pip", "install", "--upgrade", "-r", str(req_file)]
+            [pip_path, "install", "--upgrade", "-r", str(req_file)]
         )
 
         print("=" * 80)
@@ -268,13 +337,18 @@ def update_environment(requirements_file):
         return False
 
 def main():
+    # 注册信号处理器
+    signal.signal(signal.SIGINT, signal_handler)
+    if platform.system() != "Windows":
+        signal.signal(signal.SIGTERM, signal_handler)
+    
     # 主帮助信息
     parser = argparse.ArgumentParser(
         description="Python环境管理工具 - 简化Conda环境创建、导出和更新",
         epilog="使用示例:\n"
-               "  导出环境: env_utils.py export (-r export_req.txt -e env_name -p python_version)\n"
-               "  创建环境: env_utils.py create (-r create_req.txt)\n"
-               "  更新环境: env_utils.py update (-r update_req.txt)\n"
+               "  导出环境: env_utils.py export (-r export_req.txt)\n"
+               "  创建环境: env_utils.py create (-r create_req.txt -e env_name -p python_version)\n"
+               "  更新环境: env_utils.py update (-r update_req.txt -e env_name)\n"
                "  默认路径: -r requirements.txt"
                "  默认环境名：-e molplat"
                "  默认Python版本: -p 3.11.8",
@@ -299,7 +373,7 @@ def main():
     )
     export_parser.epilog = "示例: env_utils.py export -o myenv/requirements.txt"
 
-    # 创建命令 - 新增环境名称和Python版本参数
+    # 创建命令
     create_parser = subparsers.add_parser(
         "create", 
         help="创建新环境",
@@ -330,11 +404,11 @@ def main():
         "  仅指定依赖文件: env_utils.py create -r custom_req.txt"
     )
 
-    # 更新命令
+    # 更新命令 - 添加环境名称参数
     update_parser = subparsers.add_parser(
         "update", 
-        help="更新当前环境",
-        description="使用requirements.txt更新当前环境"
+        help="更新指定环境",
+        description="使用requirements.txt更新指定环境"
     )
     update_parser.add_argument(
         "-r", "--requirements", 
@@ -342,7 +416,15 @@ def main():
         metavar="FILE",
         help=f"指定requirements.txt文件路径 (默认: {DEFAULT_PIP_FILE})"
     )
-    update_parser.epilog = "示例: env_utils.py update -r updated_requirements.txt"
+    update_parser.add_argument(
+        "-e", "--env-name", 
+        default=None,
+        metavar="NAME",
+        help="指定要更新的环境名称 (默认: 当前激活的环境)"
+    )
+    update_parser.epilog = "示例:\n" \
+                           "  更新当前环境: env_utils.py update -r updated_requirements.txt\n" \
+                           "  更新指定环境: env_utils.py update -r updated_requirements.txt -e myenv"
 
     # 如果没有提供任何参数，显示帮助信息
     if len(sys.argv) == 1:
@@ -355,15 +437,19 @@ def main():
     print(f"🚀 执行命令: {args.command.upper()}")
     print("=" * 60)
 
-    if args.command == "export":
-        success = export_environment(args.output)
-    elif args.command == "create":
-        success = create_environment(args.requirements, args.env_name, args.python_version)
-    elif args.command == "update":
-        success = update_environment(args.requirements)
-    else:
-        print(f"❌ 未知命令: {args.command}")
-        sys.exit(1)
+    try:
+        if args.command == "export":
+            success = export_environment(args.output)
+        elif args.command == "create":
+            success = create_environment(args.requirements, args.env_name, args.python_version)
+        elif args.command == "update":
+            success = update_environment(args.requirements, args.env_name)
+        else:
+            print(f"❌ 未知命令: {args.command}")
+            sys.exit(1)
+    finally:
+        # 确保清理所有子进程
+        terminate_child_processes()
 
     print("\n" + "=" * 60)
     print(f"{'✅ 操作成功' if success else '❌ 操作失败'}")
