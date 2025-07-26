@@ -11,7 +11,6 @@ from pathlib import Path
 DEFAULT_ENV_NAME = "molplat"
 DEFAULT_PYTHON_VERSION = "3.11.8"
 DEFAULT_PIP_FILE = "requirements.txt"
-INSTALL_SCRIPT = "install_environment.sh"
 
 def get_system_encoding():
     """获取系统默认编码"""
@@ -130,33 +129,6 @@ def export_environment(output_file):
             f.write("\n".join(user_packages))
 
         print(f"✅ Pip依赖已保存到: {output_path}")
-
-        script_name = INSTALL_SCRIPT
-        if platform.system() == "Windows":
-            script_name = f"install_{env_name}.bat"
-
-        with open(script_name, "w", encoding="utf-8") as f:
-            if platform.system() == "Windows":
-                f.write(f"@echo off\n")
-                f.write(f":: 自动生成的环境安装脚本 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})\n")
-                f.write(f"conda create -n {env_name} python={python_version} -y\n")
-                f.write(f"call conda activate {env_name}\n")
-                f.write(f"pip install -r \"{output_path}\"\n")
-                f.write(f"echo 环境安装完成! 使用以下命令激活: conda activate {env_name}\n")
-            else:
-                f.write("#!/bin/bash\n")
-                f.write(f"# 自动生成的环境安装脚本 ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})\n")
-                f.write(f"conda create -n {env_name} python={python_version} -y\n")
-                f.write(f"conda activate {env_name}\n")
-                f.write(f"pip install -r \"{output_path}\"\n")
-                f.write(f"echo \"环境安装完成! 使用以下命令激活: conda activate {env_name}\"\n")
-        
-        if platform.system() != "Windows":
-            os.chmod(script_name, 0o755)
-
-        print(f"✅ 安装脚本已生成: {script_name}")
-        print("\n💡 在新环境中使用以下命令安装:")
-        print(f"   {'双击运行' if platform.system() == 'Windows' else 'bash'} {script_name}")
 
         return True
 

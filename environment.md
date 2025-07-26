@@ -9,8 +9,6 @@
     默认环境名：-e molplat
     默认Python版本: -p 3.11.8
 
-## install_molplat.bat (windows script)
-    根据requirements.txt初始化平台环境
 # 自主安装
 ## 创建并激活新环境
     conda create -n molplat python=3.11.8 -y
