@@ -1,7 +1,6 @@
 import os
 import yaml
 import pandas as pd
-from rdkit import Chem
 from typing import List, Dict
 
 
@@ -48,9 +47,6 @@ class BaseDataset:
         for _, row in self.data.iterrows():
             datum = row[data_col]
             label = row[label_cols[0]] if len(label_cols) == 1 else list(row[label_cols])
-
-            if "smiles" in data_col.lower() and Chem.MolFromSmiles(datum) is None:
-                continue
 
             data_list.append(datum)
             label_list.append(label)
@@ -108,8 +104,6 @@ class BaseDataset:
 
             for _, row in self.data.iterrows():
                 datum = row[data_col]
-                if "smiles" in data_col.lower() and Chem.MolFromSmiles(datum) is None:
-                    continue
                 valid_data_set.add(datum)
 
         return {
