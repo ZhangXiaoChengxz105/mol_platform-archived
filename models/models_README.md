@@ -98,7 +98,9 @@ This file should be formatted as below example from moleculnet:
 # **Formatted structure (for coding convenience)**
 ## **Formatted workflow is recommended (but optional)**
 
-    model.zip/
+this is the recommended structure of the folder after extraction
+
+    dataset_type/                    # This must correspond to the 数据集类型 field you selected or specified on the website.
     ├── model_name/                  # model workflow folder
     |    ├── model_name_data.py      # convert the data from dataset to format that model can accept (ex: smiles to fingerprints)
     |    ├── model_name_model.py     # model core implementation (ex: fingerprints to predict values)

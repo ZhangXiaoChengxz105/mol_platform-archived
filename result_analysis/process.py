@@ -165,34 +165,48 @@ def process_data(model_type, data_config, data_zip):
     D_R = os.path.join(DATA_PATH, model_type)
     os.makedirs(D_R, exist_ok=True)
     temp_extract_dir = os.path.join(D_R, "temp_extract")
-    
+
     try:
         # 清空临时目录（如果存在）
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
-        
-        # 解压到临时目录（ZIP内必含model_type文件夹）
+
+        # 解压 ZIP 文件到临时目录
         with zipfile.ZipFile(data_zip, 'r') as zip_ref:
             zip_ref.extractall(temp_extract_dir)
-        
-        # 从临时目录的model_type子文件夹移动文件到D_R
-        source_dir = os.path.join(temp_extract_dir, model_type,'data')
+
+        # 获取临时目录下的所有内容
+        top_level_items = os.listdir(temp_extract_dir)
+        top_level_dirs = [d for d in top_level_items if os.path.isdir(os.path.join(temp_extract_dir, d))]
+
+        # 判断 source_dir 选择逻辑
+        if len(top_level_dirs) == 1:
+            source_dir = os.path.join(temp_extract_dir, top_level_dirs[0])
+        else:
+            # 默认按 model_type 命名的目录
+            source_dir = os.path.join(temp_extract_dir, model_type)
+
+        # 检查 source_dir 是否存在
+        if not os.path.exists(source_dir):
+            return f"解压失败：未找到目录 {source_dir}"
+
+        # 移动所有文件到 D_R
         for root, _, files in os.walk(source_dir):
             for file in files:
                 src_path = os.path.join(root, file)
-                # 计算相对于source_dir的路径（跳过model_type层级）
                 rel_path = os.path.relpath(src_path, source_dir)
                 dst_path = os.path.join(D_R, rel_path)
-                
+
                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
                 shutil.move(src_path, dst_path)
-        
+
         # 合并配置文件
         open_and_merge_data_yaml(model_type, data_config)
         return True
-        
+
     except Exception as e:
         return f"解压失败: {e}"
+
     finally:
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
@@ -244,20 +258,31 @@ def process_model(model_type,model_config,model_zip,data_config,processed_data):
         # 清空临时目录（如果存在）
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
-        
-        # 解压到临时目录（ZIP内必含model_type文件夹）
+
+        # 解压 ZIP 到临时目录
         with zipfile.ZipFile(model_zip, 'r') as zip_ref:
             zip_ref.extractall(temp_extract_dir)
-        
-        # 从临时目录的model_type子文件夹移动文件到D_R
-        source_dir = os.path.join(temp_extract_dir, model_type)
+
+        # 判断顶层目录结构
+        top_level_items = os.listdir(temp_extract_dir)
+        top_level_dirs = [d for d in top_level_items if os.path.isdir(os.path.join(temp_extract_dir, d))]
+
+        # 选择 source_dir
+        if len(top_level_dirs) == 1:
+            source_dir = os.path.join(temp_extract_dir, top_level_dirs[0])
+        else:
+            source_dir = os.path.join(temp_extract_dir, model_type)
+
+        if not os.path.exists(source_dir):
+            raise FileNotFoundError(f"未找到预期的目录：{source_dir}")
+
+        # 移动文件（保留相对路径）
         for root, _, files in os.walk(source_dir):
             for file in files:
                 src_path = os.path.join(root, file)
-                # 计算相对于source_dir的路径（跳过model_type层级）
                 rel_path = os.path.relpath(src_path, source_dir)
                 dst_path = os.path.join(D_R, rel_path)
-                
+
                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
                 shutil.move(src_path, dst_path)
         
