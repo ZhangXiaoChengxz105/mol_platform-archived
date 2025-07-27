@@ -953,11 +953,10 @@ else:
             show_file_selector(f"{model_workflow}: README.md", READMEFILE_PATH, is_markdown=True)
             
             # 显示环境管理按钮
-            col1, col2 = st.columns(2)
-            with col1:
-                show_update_button(model_workflow, REQ_PATH)
-            with col2:
-                show_create_button(model_workflow, REQ_PATH)
+
+            show_update_button(model_workflow, REQ_PATH)
+
+            show_create_button(model_workflow, REQ_PATH)
             
             st.markdown("**模型工作流核心文件**")
             show_file_selector(f"{model_workflow}: Output Script", OUTPUTFILE_PATH)
