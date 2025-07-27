@@ -7,6 +7,7 @@ import pathlib
 import pandas as pd
 import re
 import json
+import shutil
 from datetime import datetime
 from process import process, delete
 try:
@@ -41,7 +42,7 @@ set_streamlit_upload_limit(2048)
 
 st.set_page_config(layout="wide")
 st.title("分子性质预测集成平台")
-st.markdown("集模型和数据管理于一体，支持上传删减模型，一键式选择，处理数据，并且展示")
+st.markdown("**一站式AI化学平台** - 模型与数据管理、兼容环境搭建、智能预测评估、可视化分析")
 
 # ----------- 配置路径 -----------
 MODEL_PATH =os.path.join(project_root,'models')
@@ -419,7 +420,7 @@ close_tab_js = """
 """
 exit_col_space, exit_col_btn = st.columns([9, 1])
 with exit_col_btn:
-    if st.button("退❌出"):
+    if st.button("❌退出"):
         st.warning("程序即将关闭...")
         st.components.v1.html(close_tab_js)
         os._exit(0)
@@ -458,7 +459,7 @@ with col1:
     st.write("")
     
 with col2:
-    if st.button("➕ 添加数据集与模型（再点击一次以返回）"):
+    if st.button("➕ 添加数据集与模型（点击以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
 
 # ----------- 展开区域 -----------
@@ -806,7 +807,7 @@ else:
             st.rerun()
 
         if st.session_state["smiles_eval_mode"] == "random":
-            smiles_eval_num = st.number_input("请输入要随机选择的数量", min_value=1, value=st.session_state["smiles_eval_num"])
+            smiles_eval_num = st.number_input("请输入要随机选择的数量", min_value=1, value=st.session_state["smiles_eval_num"], step=200)
             if smiles_eval_num != st.session_state["smiles_eval_num"]:
                 st.session_state["smiles_eval_num"] = smiles_eval_num
                 st.session_state["smiles_list"] = f"random{smiles_eval_num}"
@@ -889,6 +890,9 @@ else:
                 json.dump(history_list, f, indent=2, ensure_ascii=False)
 
             if latest_run_path:
+                config_path = os.path.join(latest_run_path, "config.json")
+                with open(config_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
                 if config['eval']:
                     plot_dir = os.path.join(latest_run_path, "plots")
                     st.markdown("## 🖼️ 模型分析图 (plots)")
@@ -918,28 +922,185 @@ else:
             st.error(f"运行出错：{e}")
             print(f"运行出错：{e}")
 
-    if os.path.exists(HISTORY_PATH):
-        with open(HISTORY_PATH, "r", encoding="utf-8") as f:
-            history_list = json.load(f)
+if os.path.exists(HISTORY_PATH):
+    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+        history_list = json.load(f)
 
-        if history_list:
-            st.markdown("---")
-            st.markdown("### 📂 历史运行记录（可以在results/results下查看每一次的具体结果）")
-            history_labels = [f"{h['run_id']} | 数据集类型：{h['model_argument']}|模型: {h['model']} | 数据集: {h['dataset']} | 任务: {h['task']}| 数据:{h['data']}" for h in history_list]
-            selected_index = st.selectbox("选择历史记录运行 ID 以查看结果：", options=list(range(len(history_list))), format_func=lambda i: history_labels[i])
-
-            selected = history_list[selected_index]
-            selected_run_path = os.path.join(project_root, 'results', 'results', selected["run_id"])
-
-            if os.path.exists(selected_run_path):
-                if selected.get("eval", True):
-                    st.markdown("## 🖼️ 模型分析图 (plots)")
-                    display_images_recursively(os.path.join(selected_run_path, "plots"))
-
-                st.markdown("## 📊 模型结果表格 (CSVs)")
-                display_csv_tables(selected_run_path)
-            else:
-                st.warning("找不到对应的历史目录。")
+    if history_list:
+        st.markdown("---")
+        st.markdown("### 📂 历史运行记录（可以在results/results下查看每一次的具体结果）")
         
+        # 添加修复历史记录选项
+        st.markdown("#### 🔧 修复历史记录")
+        col_repair1, col_repair2 , col_repair3= st.columns(3)
+        
+                # 修改移除无效记录功能
+        with col_repair1:
+            if st.button("移除无效记录", key="remove_invalid"):
+                # 扫描结果目录获取有效run_id
+                valid_run_ids = set()
+                results_dir = os.path.join(project_root, 'results', 'results')
+                if os.path.exists(results_dir):
+                    for run_id in os.listdir(results_dir):
+                        run_path = os.path.join(results_dir, run_id)
+                        if os.path.isdir(run_path):
+                            # 检查结果目录是否包含配置文件
+                            if os.path.exists(os.path.join(run_path, 'config.json')):
+                                valid_run_ids.add(run_id)
+                
+                # 过滤历史记录，只保留有效记录
+                updated_history = [r for r in history_list if r['run_id'] in valid_run_ids]
+                
+                # 保存更新后的历史记录
+                with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+                    json.dump(updated_history, f, indent=2, ensure_ascii=False)
+                
+                st.success(f"已移除 {len(history_list) - len(updated_history)} 条无效记录！")
+                st.rerun()
+                # 新增第三列：清除全部历史记录
+
+        with col_repair2:
+            if st.button("添加缺失记录", key="add_missing"):
+                # 扫描结果目录获取所有run_id
+                results_dir = os.path.join(project_root, 'results', 'results')
+                existing_run_ids = set(r['run_id'] for r in history_list)
+                new_records = []
+                
+                if os.path.exists(results_dir):
+                    for run_id in os.listdir(results_dir):
+                        if run_id in existing_run_ids:
+                            continue
+                            
+                        run_path = os.path.join(results_dir, run_id)
+                        if not os.path.isdir(run_path):
+                            continue
+                            
+                        # 检查配置文件是否存在
+                        config_path = os.path.join(run_path, 'config.json')
+                        if os.path.exists(config_path):
+                            try:
+                                with open(config_path, 'r', encoding='utf-8') as config_file:
+                                    run_config = json.load(config_file)
+                                    
+                                # 获取目录创建时间作为时间戳
+                                ctime = os.path.getctime(run_path)
+                                timestamp = datetime.fromtimestamp(ctime).isoformat()
+                                
+                                # 创建记录 - 使用config.json中的参数
+                                new_records.append({
+                                    'timestamp': timestamp,
+                                    'run_id': run_id,
+                                    'model_argument': run_config.get("user_argument", "未知"),
+                                    'model': run_config.get("model", "未知"),
+                                    'dataset': run_config.get("name", "未知"),
+                                    'task': run_config.get("target_list", "未知"),
+                                    'data': run_config.get("smiles_list", "未知"),
+                                    'eval': run_config.get("eval", True)
+                                })
+                            except Exception as e:
+                                st.warning(f"无法读取 {run_id} 的配置文件: {e}")
+                        else:
+                            # 如果没有配置文件，创建基础记录
+                            ctime = os.path.getctime(run_path)
+                            timestamp = datetime.fromtimestamp(ctime).isoformat()
+                            new_records.append({
+                                'timestamp': timestamp,
+                                'run_id': run_id,
+                                'model_argument': '未知',
+                                'model': '未知',
+                                'dataset': '未知',
+                                'task': '未知',
+                                'data': '未知',
+                                'eval': True
+                            })
+                
+                if new_records:
+                    # 添加新记录到历史记录
+                    updated_history = history_list + new_records
+                    
+                    # 保存更新后的历史记录
+                    with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+                        json.dump(updated_history, f, indent=2, ensure_ascii=False)
+                    
+                    st.success(f"已添加 {len(new_records)} 条缺失记录！")
+                    st.rerun()
+                else:
+                    st.info("未发现缺失记录")
+
+        with col_repair3:
+            if st.button("清除全部历史记录", key="clear_all_history", 
+                         help="⚠️ 清除所有历史记录（不会删除结果文件）"):
+                if st.session_state.get("confirm_clear_all", False):
+                    # 删除历史记录文件
+                    try:
+                        os.remove(HISTORY_PATH)
+                        st.success("已清除全部历史记录！")
+                        st.session_state.pop("confirm_clear_all", None)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"清除失败: {e}")
+                else:
+                    st.session_state["confirm_clear_all"] = True
+                    st.warning("确定要清除全部历史记录吗？再次点击按钮确认。")
+        
+        # 为每条记录创建一行
+        for i, record in enumerate(history_list):
+            # 创建一行布局
+            col_info, col_view, col_delete = st.columns([8, 1, 1])
             
-    
+            # 左侧：显示记录信息
+            with col_info:
+                st.markdown(f"**{record['run_id']}** | 数据集类型：{record['model_argument']}|模型: {record['model']} | 数据集: {record['dataset']} | 任务: {record['task']}| 数据:{record['data']}")
+            
+            # 中间：查看结果按钮
+            with col_view:
+                view_key = f"view_{record['run_id']}"
+                if st.button("查看结果", key=view_key):
+                    # 切换查看状态
+                    st.session_state[f"show_{record['run_id']}"] = not st.session_state.get(f"show_{record['run_id']}", False)
+            
+            # 右侧：删除按钮
+            with col_delete:
+                delete_key = f"delete_{record['run_id']}"
+                if st.button("🗑️", key=delete_key, help="删除此记录"):
+                    # 确认删除
+                    if st.session_state.get(f"confirm_delete_{record['run_id']}", False):
+                        # 删除结果文件夹
+                        run_folder = os.path.join(project_root, 'results', 'results', record['run_id'])
+                        if os.path.exists(run_folder):
+                            try:
+                                shutil.rmtree(run_folder)
+                                st.success(f"已删除结果文件夹: {run_folder}")
+                            except Exception as e:
+                                st.error(f"删除文件夹失败: {e}")
+                        
+                        # 从历史记录中移除
+                        del history_list[i]
+                        
+                        # 保存更新后的历史记录
+                        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+                            json.dump(history_list, f, indent=2, ensure_ascii=False)
+                        
+                        st.success("历史记录已删除！")
+                        st.rerun()
+                    else:
+                        # 设置确认标志
+                        st.session_state[f"confirm_delete_{record['run_id']}"] = True
+                        st.warning("确定要删除这条记录吗？再次点击删除按钮确认。")
+            
+            # 显示结果区域（如果该记录被展开）
+            if st.session_state.get(f"show_{record['run_id']}", False):
+                selected_run_path = os.path.join(project_root, 'results', 'results', record["run_id"])
+                
+                if os.path.exists(selected_run_path):
+                    if record.get("eval", True):
+                        st.markdown("#### 🖼️ 模型分析图")
+                        display_images_recursively(os.path.join(selected_run_path, "plots"))
+
+                    st.markdown("#### 📊 模型结果表格")
+                    display_csv_tables(selected_run_path)
+                else:
+                    st.warning("找不到对应的历史目录。")
+                
+                st.markdown("---")
+        

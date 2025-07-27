@@ -1,4 +1,4 @@
-data_type: 'nothing'
+data_type: 'smiles'
 dataset_names: ['Tox21', 'HIV', 'qm9', 'qm7', 'qm8', 'SIDER', 'ClinTox', 'Lipo', 'ESOL', 'BACE', 'BBBP', 'FreeSolv', 'MUV']
 regression_datasets: ['qm8', 'ESOL', 'Lipo', 'qm9', 'FreeSolv', 'qm7']
 
