@@ -444,7 +444,7 @@ with col1:
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="small-title">所有已创建环境以及其支持的模型</div>', unsafe_allow_html=True)
+    st.markdown("#### 平台已创建环境列表，对应该环境支持的依赖模块名 （如molplat为平台基础依赖）")
     
     # 显示环境和次级键
     for top_key, sub_keys in envs.items():
@@ -454,7 +454,7 @@ with col1:
 
     current_env = os.environ.get('CONDA_DEFAULT_ENV', '未检测到当前环境')
 
-    st.markdown(f"<div style='font-size:14px;'>当前环境为：{current_env}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:14px;'>当前平台工作环境：{current_env}</div>", unsafe_allow_html=True)
     st.write("")
     st.write("")
     
@@ -629,7 +629,7 @@ else:
         st.session_state["_last_selected_dataset"] = None
         
     model_field_options = get_all_model_types()  # 按你的需求可扩展或自动加载
-
+    st.markdown("### 请选择平台预测方法")
     # ✅ 添加模型特征字段选择控件
     st.selectbox(
         "模型所属数据集类型",
@@ -696,10 +696,13 @@ else:
                 DATAFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,dataname)
                 MODELFILE_PATH=os.path.join(project_root, 'models',model_field,model_part,modelname)
                 REQ_PATH = os.path.join(project_root, 'models',model_field,reqname)
-                show_file_selector(f"{model_part}: requirements.txt", REQ_PATH, is_text=True)
+                st.markdown("#### 环境管理功能")
+                st.markdown("**本功能默认使用模型工作流requirements.txt文件，使用一建化功能前，请查阅README.md，检查是否为模型工作流所需全部依赖，部分依赖可能须按指引手动安装**")
+                show_file_selector(f"{model_part}: requirements.txt ", REQ_PATH, is_text=True)
+                show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
                 show_update_button(model_part, REQ_PATH)
                 show_create_button(model_part,REQ_PATH)
-                show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
+                st.markdown("**模型工作流核心文件**")
                 show_file_selector(f"{model_part}: Output Script", OUTPUTFILE_PATH)
                 show_file_selector(f"{model_part}: Data Script", DATAFILE_PATH)
                 show_file_selector(f"{model_part}: Model Script", MODELFILE_PATH)
@@ -714,7 +717,7 @@ else:
     if model:
         available_datasets = get_datasets_for_model(model, model_map)
         dataset_options_with_all = available_datasets + ["all"]
-
+        st.markdown("### 请选择预测对象")
         st.multiselect(
             "数据集名称 (name)",
             options=dataset_options_with_all,
