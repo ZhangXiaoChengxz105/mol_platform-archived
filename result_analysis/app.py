@@ -274,25 +274,17 @@ def get_top_level_keys():
         return list(data.keys())
     else:
         return []
-def update(file, envname, model):
+def update(model_field,file, envname, model):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
     env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
     
-    # cmd = ['conda', 'run', '-n', envname, 'pip', 'install', '-r', file]
     cmd = [sys.executable, script_path, "update", '-r', file, '-e', envname]
-    st.text(f"执行命令: {' '.join(cmd)}  (如果失败，请复制到终端手动执行，执行完毕之后请点击更新配置文件按钮)")
+    st.text(f"执行命令: {' '.join(cmd)}")
     
     # 创建主输出容器
-    main_output = st.empty()
-    
-    # 创建折叠区域用于完整输出（默认折叠）
-    expander = st.expander("实时输出", expanded=False)
-    with expander:
-        output_container = st.empty()
-    
+    output_container = st.empty()
     output_text = ""
-    line_count = 0
     
     try:
         # 启动子进程
@@ -312,17 +304,8 @@ def update(file, envname, model):
                     break
                     
                 output_text += line
-                line_count += 1
-                
-                # 主显示区域：只显示最后20行
-                visible_lines = output_text.splitlines()[-20:]
-                
-                # 更新显示
-                main_output.code('\n'.join(visible_lines))
-                output_container.code(output_text)
-                
-                # 添加短暂延迟减少CPU负载
-                # time.sleep(0.01)
+                # 更新显示最后20行输出
+                output_container.code('\n'.join(output_text.splitlines()[-20:]))
             
             # 等待进程完成
             return_code = process.wait()
@@ -331,71 +314,53 @@ def update(file, envname, model):
             st.success("✅ 依赖更新成功")
         else:
             st.error(f"❌ 依赖更新失败，返回码：{return_code}")
-            # 展开错误输出区域以便查看
-            expander.expanded = True
+                        # st.code(output_text)  # 直接显示完整输出
             return False
             
     except Exception as e:
         st.error(f"❌ 执行过程中发生错误: {str(e)}")
-        # 展开错误输出区域以便查看
-        expander.expanded = True
-        return False
+        if output_text:
+            return False
     
     # 更新 environment.yaml
     try:
-        # 读取现有数据或创建新字典
-        if os.path.exists(env_md_path):
-            with open(env_md_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-        else:
-            data = {}
+        # 读取或创建YAML数据
+        new_model = f"{model_field}_{model}"
+        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
         
-        # 确保环境名存在且是字典
-        if envname not in data:
-            data[envname] = {}
+        # 确保环境结构存在
+        data.setdefault(envname, {})
+        data[envname][new_model] = file
         
-        # 更新模型信息
-        if model not in data[envname]:
-            data[envname][model] = {}
-        
-        # 添加更多元数据
-        data[envname][model] = file
-
         # 确保目录存在
         os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
         
         # 保存更新
         with open(env_md_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
         
         st.success(f"✅ environment.yaml 更新成功，模型 '{model}' 的依赖已更新")
         return True
         
     except Exception as e:
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
-        # 显示详细错误信息
-        st.exception(e)
         return False
 
 
-def create(model, file, envname, version):
+    
+
+def create(model_field,model, file, envname, version):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
     base_reqs = os.path.abspath(os.path.join(current_dir, '../requirements.txt'))
     env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
     
     cmd = [sys.executable, script_path, 'create', '-r', base_reqs, '-a', file, '-e', envname, '-p', version]
-    st.text(f"执行命令: {' '.join(cmd)}  (如果失败，请复制到终端手动执行，执行完毕之后请点击更新配置文件按钮)")
+    st.text(f"执行命令: {' '.join(cmd)}(如果执行失败可以将这行命令复制到cmd中并且用按钮更新你的config文件)")
     
     # 创建主输出容器
-    main_output = st.empty()
-    
-    # 创建折叠区域用于完整输出
-    with st.expander("实时输出", expanded=False):
-        output_container = st.empty()
-    
+    output_container = st.empty()
     output_text = ""
-    line_count = 0
     
     try:
         # 启动子进程
@@ -415,17 +380,8 @@ def create(model, file, envname, version):
                     break
                     
                 output_text += line
-                line_count += 1
-                
-                # 主显示区域：只显示最后20行
-                visible_lines = output_text.splitlines()[-20:]
-                
-                # 更新显示
-                main_output.code('\n'.join(visible_lines))
-                output_container.code(output_text)
-                
-                # 添加短暂延迟减少CPU负载
-                # time.sleep(0.01)
+                # 更新显示最后20行输出
+                output_container.code('\n'.join(output_text.splitlines()[-20:]))
             
             # 等待进程完成
             return_code = process.wait()
@@ -434,52 +390,91 @@ def create(model, file, envname, version):
             st.success("✅ 环境创建成功")
         else:
             st.error(f"❌ 环境创建失败，返回码：{return_code}")
+            # st.code(output_text)  # 直接显示完整输出
             return False
             
     except Exception as e:
         st.error(f"❌ 执行过程中发生错误: {str(e)}")
-        if output_text:
-            with st.expander("查看已捕获的输出"):
-                st.code(output_text)
         return False
     
     # 更新 environment.yaml
     try:
-        # 读取现有数据或创建新字典
-        if os.path.exists(env_md_path):
-            with open(env_md_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-        else:
-            data = {}
+        new_model = f"{model_field}_{model}"
+        # 读取或创建YAML数据
+        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
         
-        # 确保环境名存在且是字典
-        if envname not in data:
-            data[envname] = {}
+        # 确保环境结构存在
+        data.setdefault(envname, {})
+        data[envname][new_model] = file
+        data[envname]['molplat'] = 'requirements.txt'
         
-        # 更新模型信息
-        data[envname][model] = file
-        data[envname]['molplat']= 'requirements.txt'
-        
-        # 添加基础依赖信息
-
         # 确保目录存在
         os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
         
         # 保存更新
         with open(env_md_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
         
         st.success(f"✅ environment.yaml 更新成功，环境 '{envname}' 已创建")
         return True
         
     except Exception as e:
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
-        # 显示详细错误信息
-        st.exception(e)
+        return False
+def update_yaml(model_field,file,envname,model):
+    current_dir= os.path.dirname(os.path.abspath(__file__))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+    try:
+        # 读取或创建YAML数据
+        new_model = f"{model_field}_{model}"
+        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
+        
+        # 确保环境结构存在
+        data.setdefault(envname, {})
+        data[envname][new_model] = file
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
+        
+        # 保存更新
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+        
+        st.success(f"✅ environment.yaml 更新成功，模型 '{model}' 的依赖已写入")
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ 写入 environment.yaml 失败: {e}")
+        return False
+    
+def create_yaml(model_field,model,reqname,envname):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+    try:
+        new_model = f"{model_field}_{model}"
+        # 读取或创建YAML数据
+        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
+        
+        # 确保环境结构存在
+        data.setdefault(envname, {})
+        data[envname][new_model] = reqname
+        data[envname]['molplat'] = 'requirements.txt'
+        
+        # 确保目录存在
+        os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
+        
+        # 保存更新
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+        
+        st.success(f"✅ environment.yaml 更新成功，环境 '{envname}' 已写入")
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
 
-
-def show_update_button(model, reqname):
+def show_update_button(model_field,model, reqname):
     with st.expander("更新环境"):
         keys = get_top_level_keys()
         if not keys:
@@ -492,18 +487,45 @@ def show_update_button(model, reqname):
             keys,
             key=f"update_select_{model}"  # 唯一key
         )
-
+        manual_key_1 = f"manual_update_{model}"
+        if manual_key_1 not in st.session_state:
+            st.session_state[manual_key_1] = False
         # 添加唯一key
         if st.button("Update", key=f"update_btn_{model}"):
             st.text("⏳ 开始更新...")
-            success = update(reqname, env_name, model)
+            success = update(model_field,reqname, env_name, model)
             if success:
                 st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
                 st.text("请退出重新打开以生效")
+                st.session_state[manual_key_1] = False
             else:
+                st.session_state[manual_key_1] = True
                 st.error("❌ Update 失败，请检查输出信息")
+                st.session_state[manual_key_1] = {
+                        "model_field": model_field,
+                        "reqname": reqname,
+                        "env_name": env_name,
+                        "model": model
+                    }
+        if st.session_state[manual_key_1] and isinstance(st.session_state[manual_key_1], dict):
+            st.warning("YAML 文件未更新，请手动更新配置文件")
+            if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
+                params = st.session_state[manual_key_1]
+                done = update_yaml(
+                    params["model_field"],
+                    params["reqname"],
+                    params["env_name"],
+                    params["model"]
+                )
+                if done:
+                    st.success("✅ YAML 文件更新成功！")
+                    # 重置状态
+                    st.session_state[manual_key_1] = False
+                else:
+                    st.error("❌ YAML 文件更新失败，请检查错误信息")
+                
 
-def show_create_button(model, reqname):
+def show_create_button(model_field,model, reqname):
     with st.expander("创建环境"):
         st.markdown("### 创建模型配置")
         col3, col4 = st.columns(2)
@@ -522,19 +544,49 @@ def show_create_button(model, reqname):
                 max_chars=20,
                 key=f"env_name_{model}"  # 唯一key
             )
-        
+        manual_key = f"manual_create_{model}"
+        if manual_key not in st.session_state:
+            st.session_state[manual_key] = False
         # 添加唯一key
         if st.button("Create", key=f"create_btn_{model}"):
             if not py_version.strip() or not env_name.strip() or not model.strip() or not reqname.strip():
                 st.error("请填写所有字段，包括模型名、依赖文件、Python 版本和环境名！")
             else:
                 st.text("创建环境中⏳")
-                success = create(model, reqname, env_name, py_version)
+                success = create(model_field,model, reqname, env_name, py_version)
                 if success:
                     st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
                     st.text("创建新环境，请退出重新打开")
+                    st.session_state[manual_key] = False
                 else:
                     st.error("创建环境失败，请查看上方错误信息。")
+                    # 存储参数以便手动更新
+                    st.session_state[manual_key] = {
+                        "model_field": model_field,
+                        "model": model,
+                        "reqname": reqname,
+                        "env_name": env_name
+                    }
+        
+        # 如果创建失败，显示手动更新按钮
+        if st.session_state[manual_key] and isinstance(st.session_state[manual_key], dict):
+            st.warning("YAML 文件未更新，请手动更新配置文件")
+            if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
+                params = st.session_state[manual_key]
+                done = create_yaml(
+                    params["model_field"],
+                    params["model"],
+                    params["reqname"],
+                    params["env_name"]
+                )
+                if done:
+                    st.success("✅ YAML 文件更新成功！")
+                    # 重置状态
+                    st.session_state[manual_key] = False
+                else:
+                    st.error("❌ YAML 文件更新失败，请检查错误信息")
+
+                    
 
 def on_select_change():
     # 选框改变时，如果选择“自定义输入”，保持final_model_type不变等待输入框输入
@@ -954,9 +1006,9 @@ else:
             
             # 显示环境管理按钮
 
-            show_update_button(model_workflow, REQ_PATH)
+            show_update_button(model_field,model_workflow, REQ_PATH)
 
-            show_create_button(model_workflow, REQ_PATH)
+            show_create_button(model_field,model_workflow, REQ_PATH)
             
             st.markdown("**模型工作流核心文件**")
             show_file_selector(f"{model_workflow}: Output Script", OUTPUTFILE_PATH)
