@@ -859,7 +859,7 @@ if st.session_state.get("show_model_input", True):
 else:
     # ----------- 当 model_field 变化时，重置所有相关选择 -----------
     def on_model_field_change():
-        st.session_state["selected_model_workflow"] = None  # 新增
+        st.session_state["selected_model_workflows"] = []  # 改为列表
         st.session_state["selected_model_names"] = []
         st.session_state["selected_datasets"] = []
         st.session_state["selected_tasks"] = []
@@ -889,60 +889,82 @@ else:
         model_map = load_model_map(model_field)
         workflows = list(model_map.keys())  # 获取所有工作流
         
-        # 添加工作流选择
-        st.selectbox(
-            "模型工作流",
+        # 将工作流选择改为多选框
+        st.multiselect(
+            "模型工作流（可多选）",
             options=workflows,
-            key="selected_model_workflow",
-            on_change=on_workflow_change
+            key="selected_model_workflows",  # 改为复数形式
+            on_change=lambda: st.session_state.update({"selected_model_names": []})  # 工作流变化时重置模型选择
         )
         
-        # 根据选择的工作流加载模型
-        if st.session_state["selected_model_workflow"]:
-            workflow = st.session_state["selected_model_workflow"]
-            model_options = []
-            for model_key in model_map[workflow].keys():
-                full_model = f"{workflow}_{model_key}"
-                model_options.append(full_model)
+        # 根据选择的多个工作流加载所有模型
+        if st.session_state["selected_model_workflows"]:
+            all_model_options = []
             
-            model_options_with_all = model_options + ["all"]
+            # 遍历每个选中的工作流
+            for workflow in st.session_state["selected_model_workflows"]:
+                # 获取该工作流下的所有模型
+                for model_key in model_map[workflow].keys():
+                    full_model = f"{workflow}_{model_key}"
+                    all_model_options.append(full_model)
+            
+            # 去重并排序
+            all_model_options = sorted(set(all_model_options))
+            model_options_with_all = all_model_options + ["all"]
             
             st.multiselect(
-                "模型名称",
+                "模型名称（可多选）",
                 options=model_options_with_all,
                 key="selected_model_names"
             )
 
     # 使用 selected_model_names 替代原来的 selected_models
     if "all" in st.session_state["selected_model_names"]:
-        model = [m for m in model_options if m != "all"]
+        model = all_model_options  # 使用之前收集的所有模型
     else:
         model = st.session_state["selected_model_names"]
-        
-    # 环境管理部分使用工作流名称
-    if model and st.session_state["selected_model_workflow"]:
-        model_workflow = st.session_state["selected_model_workflow"]
-        readname = f"{model_workflow}_readme.md"
-        outputname = f"{model_workflow}_output.py"
-        dataname = f"{model_workflow}_data.py"
-        modelname = f"{model_workflow}_model.py"
-        reqname =  f"{model_workflow}_requirements.txt"
-        READMEFILE_PATH = os.path.join(project_root, 'models', model_field, readname)
-        OUTPUTFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, outputname)
-        DATAFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, dataname)
-        MODELFILE_PATH=os.path.join(project_root, 'models', model_field, model_workflow, modelname)
-        REQ_PATH = os.path.join(project_root, 'models', model_field, reqname)
-        
-        st.markdown("#### 环境管理功能")
-        st.markdown("**本功能默认使用模型工作流requirements.txt文件，使用一建化功能前，请查阅README.md，检查是否为模型工作流所需全部依赖，部分依赖可能须按指引手动安装**")
-        show_file_selector(f"{model_workflow}: requirements.txt ", REQ_PATH, is_text=True)
-        show_file_selector(f"{model_workflow}: README.md", READMEFILE_PATH, is_markdown=True)
-        show_update_button(model_workflow, REQ_PATH)
-        show_create_button(model_workflow, REQ_PATH)
-        st.markdown("**模型工作流核心文件**")
-        show_file_selector(f"{model_workflow}: Output Script", OUTPUTFILE_PATH)
-        show_file_selector(f"{model_workflow}: Data Script", DATAFILE_PATH)
-        show_file_selector(f"{model_workflow}: Model Script", MODELFILE_PATH)
+
+    st.markdown("#### 环境管理功能")
+    st.markdown("**本功能默认使用模型工作流requirements.txt文件，使用一建化功能前，请查阅README.md，检查是否为模型工作流所需全部依赖，部分依赖可能须按指引手动安装**")    
+    # 环境管理部分：为每个选中的工作流分别显示
+    if model and st.session_state["selected_model_workflows"]:
+        # 遍历每个选中的工作流
+        for model_workflow in st.session_state["selected_model_workflows"]:
+            # 添加工作流标题，使每个工作流部分清晰可见
+            st.markdown(f"##### 工作流: {model_workflow}")
+            
+            readname = f"{model_workflow}_readme.md"
+            outputname = f"{model_workflow}_output.py"
+            dataname = f"{model_workflow}_data.py"
+            modelname = f"{model_workflow}_model.py"
+            reqname =  f"{model_workflow}_requirements.txt"
+            
+            # 构建文件路径
+            READMEFILE_PATH = os.path.join(project_root, 'models', model_field, readname)
+            OUTPUTFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, outputname)
+            DATAFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, dataname)
+            MODELFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, modelname)
+            REQ_PATH = os.path.join(project_root, 'models', model_field, reqname)
+            
+            
+            
+            # 显示文件选择器
+            show_file_selector(f"{model_workflow}: requirements.txt ", REQ_PATH, is_text=True)
+            show_file_selector(f"{model_workflow}: README.md", READMEFILE_PATH, is_markdown=True)
+            
+            # 显示环境管理按钮
+            col1, col2 = st.columns(2)
+            with col1:
+                show_update_button(model_workflow, REQ_PATH)
+            with col2:
+                show_create_button(model_workflow, REQ_PATH)
+            
+            st.markdown("**模型工作流核心文件**")
+            show_file_selector(f"{model_workflow}: Output Script", OUTPUTFILE_PATH)
+            show_file_selector(f"{model_workflow}: Data Script", DATAFILE_PATH)
+            show_file_selector(f"{model_workflow}: Model Script", MODELFILE_PATH)
+            
+            st.markdown("---")  # 添加分隔线
 
     #--------datasets 只有在 model 出现的时候再出现
     def on_dataset_change():
