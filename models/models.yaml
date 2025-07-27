@@ -22,5 +22,10 @@ moleculenet:
     SEQ:
       SEQ: [Tox21, ClinTox, MUV, SIDER, BBBP, HIV, BACE, FreeSolv, ESOL, Lipo, qm7,
         qm8, qm9]
+
 test:
   datasets: [qm7, MUV, Lipo, qm8, Tox21]
+  models:
+    test_workflow:
+      model1: [qm7, qm8, MUV, Lipo, Tox21]
+      model2: [qm7, qm8, MUV, Lipo, Tox21]

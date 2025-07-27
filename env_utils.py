@@ -175,6 +175,57 @@ def get_conda_env_path(env_name):
         print(f"❌ 获取环境路径失败: {str(e)}")
         return None
 
+def install_requirements(env_name, requirements_files, upgrade=False):
+    """
+    安装或更新指定环境的依赖文件
+    返回: (成功标志, 失败文件列表)
+    """
+    env_path = get_conda_env_path(env_name)
+    if not env_path:
+        print(f"❌ 环境路径无效: {env_name}")
+        return False, requirements_files  # 所有文件都视为失败
+    
+    print(f"🔍 环境路径: {env_path}")
+
+    # 获取目标环境的pip路径
+    pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
+    pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
+    
+    use_conda_run = False
+    if not os.path.exists(pip_path):
+        # 尝试使用conda run作为备选方案
+        print(f"⚠️ 找不到pip可执行文件: {pip_path}")
+        print("🔄 尝试使用conda run执行命令...")
+        use_conda_run = True
+    
+    failed_files = []
+    
+    # 安装每个依赖文件
+    for req_file in requirements_files:
+        print(f"\n{'🔄 更新' if upgrade else '🔧 安装'}依赖文件: {req_file}")
+        
+        # 构建命令
+        if use_conda_run:
+            pip_cmd = ["conda", "run", "-n", env_name, "pip", "install"]
+        else:
+            pip_cmd = [pip_path, "install"]
+        
+        if upgrade:
+            pip_cmd.append("--upgrade")
+        
+        pip_cmd.extend(["-r", str(Path(req_file).resolve())])
+        
+        # 执行安装
+        return_code = run_command_realtime(pip_cmd)
+        
+        if return_code != 0:
+            failed_files.append(req_file)
+            print(f"⚠️ 依赖文件处理失败: {req_file}")
+        else:
+            print(f"✅ 依赖文件处理成功: {req_file}")
+    
+    return len(failed_files) == 0, failed_files
+
 def export_environment(output_file):
     """导出当前环境的pip依赖到指定文件"""
     try:
@@ -223,12 +274,22 @@ def export_environment(output_file):
         traceback.print_exc()
         return False
 
-def create_environment(requirements_file, env_name: str, python_version: str):
-    """根据指定的requirements.txt创建新环境"""
+def create_environment(base_requirements, additional_requirements, env_name: str, python_version: str):
+    """根据指定的requirements文件创建新环境"""
     try:
-        req_file = Path(requirements_file)
-        if not req_file.exists():
-            print(f"❌ 错误: {req_file} 文件不存在")
+        # 合并所有依赖文件
+        all_requirements = [base_requirements] + additional_requirements
+        
+        # 检查所有requirements文件
+        missing_files = []
+        for req_file in all_requirements:
+            if not Path(req_file).exists():
+                missing_files.append(req_file)
+        
+        if missing_files:
+            print(f"❌ 错误: 以下文件不存在:")
+            for f in missing_files:
+                print(f"    - {f}")
             return False
 
         # 处理环境名称输入
@@ -260,32 +321,21 @@ def create_environment(requirements_file, env_name: str, python_version: str):
             elif choice == '2':
                 # 更新现有环境
                 print(f"🔄 更新环境 {env_name}...")
-                pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
-                pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
+                success, failed_files = install_requirements(env_name, all_requirements, upgrade=True)
                 
-                if os.path.exists(pip_path):
-                    # 使用目标环境的pip进行安装
-                    return_code = run_command_realtime(
-                        [pip_path, "install", "-r", str(req_file)]
-                    )
-                else:
-                    # 尝试使用conda run
-                    print(f"⚠️ 找不到pip可执行文件: {pip_path}")
-                    print("🔄 尝试使用conda run执行命令...")
-                    return_code = run_command_realtime(
-                        ["conda", "run", "-n", env_name, "pip", "install", "-r", str(req_file)]
-                    )
-                
-                if return_code == 0:
+                if success:
                     print(f"✅ 环境 '{env_name}' 更新成功!")
                     return True
                 else:
-                    print(f"❌ 依赖安装失败 (返回码: {return_code})")
+                    print(f"\n❌ 以下依赖文件安装失败:")
+                    for f in failed_files:
+                        print(f"    - {f}")
                     return False
             else:
                 print("操作取消")
                 return False
-
+        else:
+            print(f"可以创建新环境 '{env_name}'...")
         # 处理Python版本输入
         if python_version is None:
             python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
@@ -310,33 +360,26 @@ def create_environment(requirements_file, env_name: str, python_version: str):
             print(f"\n❌ 环境创建失败 (返回码: {return_code})")
             return False
 
-        env_path = get_conda_env_path(env_name)
-        if not env_path:
-            print("\n❌ 无法找到环境路径")
-            return False
-
-        pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
-        pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
-        
-        if not os.path.exists(pip_path):
-            print(f"\n❌ 找不到pip可执行文件: {pip_path}")
-            return False
-
+        # 安装依赖
         print(f"📦 正在安装依赖...")
+        print(f"  基础依赖: {base_requirements}")
+        if additional_requirements:
+            print(f"  额外依赖: {', '.join(additional_requirements)}")
+        print("=" * 80)
+        
+        success, failed_files = install_requirements(env_name, all_requirements)
+        
         print("=" * 80)
 
-        return_code = run_command_realtime(
-            [pip_path, "install", "-r", str(req_file)]
-        )
-
-        print("=" * 80)
-
-        if return_code == 0:
+        if success:
             print(f"\n✅ 环境 '{env_name}' 创建并配置成功!")
             print(f"👉 使用以下命令激活环境: conda activate {env_name}")
             return True
         else:
-            print(f"\n❌ 依赖安装失败 (返回码: {return_code})")
+            print(f"\n❌ 以下依赖文件安装失败:")
+            for f in failed_files:
+                print(f"    - {f}")
+            print("⚠️ 环境已创建但依赖未完全安装")
             return False
 
     except Exception as e:
@@ -345,12 +388,22 @@ def create_environment(requirements_file, env_name: str, python_version: str):
         traceback.print_exc()
         return False
 
-def update_environment(requirements_file, env_name: str = None):
-    """使用指定的requirements.txt更新指定环境"""
+def update_environment(base_requirements, additional_requirements, env_name: str = None):
+    """使用指定的requirements文件更新指定环境"""
     try:
-        req_file = Path(requirements_file)
-        if not req_file.exists():
-            print(f"❌ 错误: {req_file} 文件不存在")
+        # 合并所有依赖文件
+        all_requirements = [base_requirements] + additional_requirements
+        
+        # 检查所有requirements文件
+        missing_files = []
+        for req_file in all_requirements:
+            if not Path(req_file).exists():
+                missing_files.append(req_file)
+        
+        if missing_files:
+            print(f"❌ 错误: 以下文件不存在:")
+            for f in missing_files:
+                print(f"    - {f}")
             return False
 
         # 如果没有指定环境名称，使用当前环境
@@ -359,51 +412,39 @@ def update_environment(requirements_file, env_name: str = None):
             if not env_name:
                 env_name = DEFAULT_ENV_NAME
             print(f"🔄 更新默认环境 '{env_name}'...")
+        else:
+            print(f"🔄 更新环境 '{env_name}'...")
+            
         # 检查指定环境是否存在
         env_path = get_conda_env_path(env_name)
         if not env_path:
-            choice = input("是否创建该环境？(y/n): ").strip().lower()
+            choice = input(f"环境 '{env_name}' 不存在，是否创建? (y/n): ").strip().lower()
             if choice == 'y':
                 # 创建环境
                 print(f"🛠️ 开始创建环境 {env_name}...")
-                return create_environment(requirements_file, env_name, DEFAULT_PYTHON_VERSION)
+                return create_environment(base_requirements, additional_requirements, env_name, DEFAULT_PYTHON_VERSION)
             else:
                 print("操作取消")
                 return False
-        print(f"🔄 正在更新环境 '{env_name}'...")
-
-        # 获取目标环境的pip路径
-        env_path = get_conda_env_path(env_name)
-        if not env_path:
-            print(f"❌ 无法获取环境 '{env_name}' 的路径")
-            return False
-            
-        # 打印环境路径用于调试
-        print(f"🔍 环境路径: {env_path}")
-
-        pip_exec = "pip.exe" if platform.system() == "Windows" else "pip"
-        pip_path = os.path.join(env_path, "bin", pip_exec) if platform.system() != "Windows" else os.path.join(env_path, "Scripts", pip_exec)
         
-        if not os.path.exists(pip_path):
-            # 尝试使用conda run作为备选方案
-            print(f"⚠️ 找不到pip可执行文件: {pip_path}")
-            print("🔄 尝试使用conda run执行命令...")
-            return_code = run_command_realtime(
-                ["conda", "run", "-n", env_name, "pip", "install", "--upgrade", "-r", str(req_file)]
-            )
-        else:
-            # 使用目标环境的pip进行安装
-            return_code = run_command_realtime(
-                [pip_path, "install", "--upgrade", "-r", str(req_file)]
-            )
-
+        # 安装依赖
+        print(f"📦 正在更新依赖...")
+        print(f"  基础依赖: {base_requirements}")
+        if additional_requirements:
+            print(f"  额外依赖: {', '.join(additional_requirements)}")
+        print("=" * 80)
+        
+        success, failed_files = install_requirements(env_name, all_requirements, upgrade=True)
+        
         print("=" * 80)
 
-        if return_code == 0:
+        if success:
             print("\n✅ 环境更新成功!")
             return True
         else:
-            print(f"\n❌ 更新失败 (返回码: {return_code})")
+            print(f"\n❌ 以下依赖文件安装失败:")
+            for f in failed_files:
+                print(f"    - {f}")
             return False
 
     except Exception as e:
@@ -411,7 +452,7 @@ def update_environment(requirements_file, env_name: str = None):
         import traceback
         traceback.print_exc()
         return False
-
+       
 def main():
     # 注册信号处理器
     signal.signal(signal.SIGINT, signal_handler)
@@ -462,6 +503,13 @@ def main():
         help=f"指定requirements.txt文件路径 (默认: {DEFAULT_PIP_FILE})"
     )
     create_parser.add_argument(
+        "-a", "--additions", 
+        nargs='*', 
+        default=[],
+        metavar="FILE",
+        help="指定一或多个额外的requirements.txt文件(如模型配置文件路径)"
+    )
+    create_parser.add_argument(
         "-e", "--env-name", 
         default=None,
         metavar="NAME",
@@ -476,8 +524,8 @@ def main():
     create_parser.epilog = (
         "示例:\n"
         "  完全交互式: env_utils.py create\n"
-        "  指定所有参数: env_utils.py create -r custom_req.txt -e myenv -p 3.11.8\n"
-        "  仅指定依赖文件: env_utils.py create -r custom_req.txt"
+        "  指定所有参数: env_utils.py create -r custom_req.txt -a additional_req.txt ... -e myenv -p 3.11.8\n"
+        "  仅指定依赖文件: env_utils.py create -r custom_req.txt -a additional_req.txt ..."
     )
 
     # 更新命令 - 添加环境名称参数
@@ -491,6 +539,13 @@ def main():
         default=DEFAULT_PIP_FILE,
         metavar="FILE",
         help=f"指定requirements.txt文件路径 (默认: {DEFAULT_PIP_FILE})"
+    )
+    update_parser.add_argument(
+        "-a", "--additions", 
+        nargs='*', 
+        default=[],
+        metavar="FILE",
+        help="指定一或多个额外的requirements.txt文件(如模型配置文件路径)"
     )
     update_parser.add_argument(
         "-e", "--env-name", 
@@ -517,9 +572,9 @@ def main():
         if args.command == "export":
             success = export_environment(args.output)
         elif args.command == "create":
-            success = create_environment(args.requirements, args.env_name, args.python_version)
+            success = create_environment(args.requirements, args.additions, args.env_name, args.python_version)
         elif args.command == "update":
-            success = update_environment(args.requirements, args.env_name)
+            success = update_environment(args.requirements, args.additions, args.env_name)
         else:
             print(f"❌ 未知命令: {args.command}")
             sys.exit(1)

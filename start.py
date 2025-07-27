@@ -118,7 +118,7 @@ if __name__ == "__main__":
     # 检查并执行初始化/更新
     check_initialization()
     
-    env_name = input("指定平台运行环境（默认molplat）: ").strip().lower()
+    env_name = input("指定初始平台运行环境（默认molplat，不包含模型配置）: ").strip().lower()
     env_name = env_name if env_name else "molplat"
 
     # 启动主应用

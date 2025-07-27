@@ -3,8 +3,8 @@
 使用示例:
     查看帮助: env_utils.py -h or help
     导出环境: env_utils.py export (-r export_req.txt)
-    创建环境: env_utils.py create (-r create_req.txt -e env_name -p python_version)
-    更新环境: env_utils.py update (-r update_req.txt -e env_name)
+    创建环境: env_utils.py create (-r create_req.txt -a additional_req.txt ... -e env_name -p python_version)
+    更新环境: env_utils.py update (-r update_req.txt -a additional_req.txt ... -e env_name)
     默认路径: -r requirements.txt
     默认环境名：-e molplat
     默认Python版本: -p 3.11.8

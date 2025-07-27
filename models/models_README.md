@@ -10,7 +10,7 @@ but at lease have 3 files named:
 
 `dataset.yaml`
 
-`env.md`/`requirements.txt`    # environment requirement instruction (use pip install for requirements)
+`env.md`，`requirements.txt`    # environment requirement instruction and environment dependancies (install -r requirements.txt)
 
 ## **model_name_output.py**
 This file should have a function named "predict":
