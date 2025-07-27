@@ -2,6 +2,7 @@ import os
 import platform
 import signal
 import sys
+import yaml
 from env_utils import create_environment, update_environment, get_current_env_name, get_conda_env_path, run_command_realtime
 import subprocess
 
@@ -45,15 +46,21 @@ def check_initialization():
 def perform_initialization():
     """执行初始化操作，返回是否成功"""
     try:
+        env_name = input("请输入初始环境名称(默认molplat): ").strip()
+        if not env_name:
+                env_name = "molplat"
+                print("采用默认环境名称: ", "DEFAULT_ENV_NAME")
         # 直接调用env_utils中的函数创建环境
         success = create_environment(
-            requirements_file="requirements.txt",
-            env_name=None,
+            base_requirements="requirements.txt",
+            env_name=env_name,
             python_version="3.11.8"
         )
-        
-        # 创建数据目录
-        os.makedirs("data", exist_ok=True)
+        if success:
+            print("环境创建完成！\n")
+            print("生成平台环境管理文件environment.yaml")
+            config = {env_name: {"molplat": "requirements.txt"}}
+            yaml.dump(config, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "environment.yaml"), "w+"))
         return success
     except Exception as e:
         print(f"初始化过程中出错: {e}")

@@ -237,7 +237,7 @@ def export_environment(output_file):
 
         print(f"📤 正在导出环境: {env_name}")
         print(f"📝 输出文件: {output_file}")
-        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        # python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
         result = subprocess.run(
             ["pip", "list", "--not-required", "--format=freeze"],
@@ -274,7 +274,7 @@ def export_environment(output_file):
         traceback.print_exc()
         return False
 
-def create_environment(base_requirements, additional_requirements, env_name: str, python_version: str):
+def create_environment(base_requirements, additional_requirements = [], env_name: str = None, python_version: str = None):
     """根据指定的requirements文件创建新环境"""
     try:
         # 合并所有依赖文件
@@ -388,7 +388,7 @@ def create_environment(base_requirements, additional_requirements, env_name: str
         traceback.print_exc()
         return False
 
-def update_environment(base_requirements, additional_requirements, env_name: str = None):
+def update_environment(base_requirements, additional_requirements = [], env_name: str = None):
     """使用指定的requirements文件更新指定环境"""
     try:
         # 合并所有依赖文件

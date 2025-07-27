@@ -1,19 +1,2 @@
-# env_name
-molplat :
-  # requirment_name
+test:
   molplat: requirements.txt
-
-
-train:
-    FP: models/moleculenet/FP_requirments.txt 
-    SEQ:  
-    GNN:
-    RNN: 
-
-test100:
-  molplat: requirements.txt
-
-  FP: models/moleculenet/FP_requirments.txt 
-  SEQ:   
-  GNN: 
-  RNN: 
