@@ -239,10 +239,12 @@ def get_envs():
 
 
 # ----------- 初始化 session_state -----------
-if "selected_model_field" not in st.session_state:
+if "selected_model_field" not in st.session_state:      # dataset_type
     st.session_state["selected_model_field"] = None
-if "selected_models" not in st.session_state:
-    st.session_state["selected_models"] = []
+if "selected_model_workflow" not in st.session_state:   # workflow_type
+    st.session_state["selected_model_workflow"] = None
+if "selected_model_names" not in st.session_state:     # model_type
+    st.session_state["selected_model_names"] = []
 if "selected_datasets" not in st.session_state:
     st.session_state["selected_datasets"] = []
 if "eval" not in st.session_state:
@@ -259,6 +261,8 @@ if "smiles_eval_mode" not in st.session_state:
     st.session_state["smiles_eval_mode"] = "random"
 if "smiles_eval_num" not in st.session_state:
     st.session_state["smiles_eval_num"] = 200
+def on_workflow_change():
+    st.session_state["selected_model_names"] = []
 def get_top_level_keys():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     yaml_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
@@ -351,7 +355,7 @@ def show_update_button(model, reqname):
             success = update(reqname, env_name, model)
             if success:
                 st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
-                st.text("请退出重新打开以生效")
+                st.text("如需重新查看环境列表，请手动刷新 'ctrl r'")
             else:
                 st.error("❌ Update 失败，请检查输出信息")
 
@@ -376,7 +380,7 @@ def show_create_button(model, reqname):
                 success = create(model, reqname, env_name, py_version)
                 if success:
                     st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
-                    st.text("创建新环境，请退出重新打开")
+                    st.text("创建新环境成功，使用新环境，请关闭重启平台，输入新环境名")
                 else:
                     st.error("创建环境失败，请查看上方错误信息。")
 
@@ -413,6 +417,64 @@ if "model_list_changed" not in st.session_state:
     st.session_state["model_list_changed"] = True
 
 # ----------- 展开按钮 -----------
+def repair_environment_record():
+    try:
+        # 获取当前系统中所有conda环境
+        conda_envs = get_conda_environments()
+        
+        # 读取environment.yaml文件
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+        
+        with open(env_md_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        
+        # 检查并移除不存在于系统的环境
+        original_count = len(data)
+        keys_to_remove = [env for env in data if env not in conda_envs]
+        keys_to_keep = [env for env in data if env not in keys_to_remove]
+        for env in keys_to_remove:
+            del data[env]
+        
+        # 保存更新后的文件
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+        
+        return True, len(keys_to_remove), [keys_to_remove,keys_to_keep]
+    except Exception as e:
+        st.error(f"修复失败: {e}")
+        return False, 0, []
+
+# 获取系统中所有conda环境
+def get_conda_environments():
+    try:
+        # 使用conda命令获取环境列表
+        result = subprocess.run(
+            ['conda', 'env', 'list', '--json'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        # 解析JSON输出
+        env_data = json.loads(result.stdout)
+        envs = env_data.get('envs', [])
+        
+        # 提取环境名称（路径的最后部分）
+        env_names = set()
+        for env_path in envs:
+            # 基本环境通常是第一个，名称为"base"
+            if env_path == env_data.get('root_prefix'):
+                env_names.add('base')
+            else:
+                env_name = os.path.basename(env_path)
+                env_names.add(env_name)
+        
+        return env_names
+    except Exception as e:
+        st.error(f"获取conda环境失败: {e}")
+        return set()
+    
 close_tab_js = """
 <script>
     window.close();
@@ -448,16 +510,38 @@ with col1:
     
     # 显示环境和次级键
     for top_key, sub_keys in envs.items():
-        sub_keys_str = ", ".join(sub_keys) if sub_keys else "(无次级键)"
+        sub_keys_str = ", ".join(sub_keys) if sub_keys else "(无依赖安装)"
         st.markdown(f'<div class="env-item"><b>{top_key}</b>: {sub_keys_str}</div>', unsafe_allow_html=True)
 
 
     current_env = os.environ.get('CONDA_DEFAULT_ENV', '未检测到当前环境')
 
     st.markdown(f"<div style='font-size:14px;'>当前平台工作环境：{current_env}</div>", unsafe_allow_html=True)
+    # 添加环境修复按钮
+    st.markdown("---")
+    with st.expander("🔧 修复环境记录", expanded=False):
+        st.markdown("**扫描并移除系统中已不存在的环境记录**")
+        st.warning("此操作将更新 environment.yaml 文件，移除所有不存在的环境记录")
+        
+        if st.button("扫描并修复环境记录"):
+            st.text("⏳ 正在扫描环境...")
+            success, removed_count, return_list = repair_environment_record()
+            if success:
+                if removed_count > 0:
+                    st.error(f"发现 {removed_count} 个不存在环境记录:")
+                    st.error(",".join(return_list[0]))
+                    st.success("✅已移除无效环境")
+                    st.success(f"有效环境:")
+                    st.success(",".join(return_list[1]))
+                    st.text("如需更新环境列表，请手动刷新 'ctrl r'")
+                else:
+                    st.info("未检测到已删除环境记录，环境列表正常")
+            else:
+                st.error("❌ 修复失败，请检查输出信息")
+
     st.write("")
     st.write("")
-    
+
 with col2:
     if st.button("➕ 添加数据集与模型（点击以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
@@ -623,20 +707,21 @@ if st.session_state.get("show_model_input", True):
 else:
     # ----------- 当 model_field 变化时，重置所有相关选择 -----------
     def on_model_field_change():
-        st.session_state["selected_models"] = []
+        st.session_state["selected_model_workflow"] = None  # 新增
+        st.session_state["selected_model_names"] = []
         st.session_state["selected_datasets"] = []
         st.session_state["selected_tasks"] = []
         st.session_state["_last_selected_dataset"] = None
         
-    model_field_options = get_all_model_types()  # 按你的需求可扩展或自动加载
+    model_field_options = get_all_model_types()
     st.markdown("### 请选择平台预测方法")
-    # ✅ 添加模型特征字段选择控件
     st.selectbox(
         "模型所属数据集类型",
         options=model_field_options,
         key="selected_model_field",
         on_change=on_model_field_change
     )    
+    
     # ----------- 从 model_dataset_map.yaml 获取数据集列表 -----------
     @st.cache_data
     def load_model_map(modelfield, path=MODEL_PATH):
@@ -644,68 +729,69 @@ else:
         with open(new_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
+        # 返回数据结构改为 {工作流: {模型名称: 配置}}
         return data.get(modelfield, {}).get("models", {})
 
     model_field = st.session_state["selected_model_field"]
     if model_field:
-        model_options =[]
         model_map = load_model_map(model_field)
-        for mode_l in model_map:
-            submodels = get_submodel(model_field,mode_l)
-            for submodel in submodels:
-                full_model = f"{mode_l}_{submodel}"
-                model_options.append(full_model)
-        model_options_with_all = model_options + ["all"]
-        # ----------- 记录模型选择前的值 -----------
-
-
-        def on_model_change():
-            st.session_state["selected_datasets"] = []
-            st.session_state["selected_tasks"] = []
-
-        # ✅ 多选控件（使用 session 保存 + 回调重置）
-        st.multiselect(
-            "模型名称(model)",
-            options=model_options_with_all,
-            key="selected_models",
-            on_change=on_model_change
-        )
-
-    if "all" in st.session_state["selected_models"]:
-        model = model_options
-    else:
-        model = st.session_state["selected_models"]
+        workflows = list(model_map.keys())  # 获取所有工作流
         
+        # 添加工作流选择
+        st.selectbox(
+            "模型工作流",
+            options=workflows,
+            key="selected_model_workflow",
+            on_change=on_workflow_change
+        )
+        
+        # 根据选择的工作流加载模型
+        if st.session_state["selected_model_workflow"]:
+            workflow = st.session_state["selected_model_workflow"]
+            model_options = []
+            for model_key in model_map[workflow].keys():
+                full_model = f"{workflow}_{model_key}"
+                model_options.append(full_model)
+            
+            model_options_with_all = model_options + ["all"]
+            
+            st.multiselect(
+                "模型名称",
+                options=model_options_with_all,
+                key="selected_model_names"
+            )
 
-    if model:
-        model_upper_list =[]
-        for models in model:
-            if isinstance(models, str) and "_" in models:
-                model_part = models.split("_")[0]
-            else:
-                model_part = str(models).upper()
-            if model_part not in model_upper_list:
-                model_upper_list.append(model_part)
-                readname = f"{model_part}_readme.md"
-                outputname = f"{model_part}_output.py"
-                dataname = f"{model_part}_data.py"
-                modelname = f"{model_part}_model.py"
-                reqname =  f"{model_part}_requirements.txt"
-                READMEFILE_PATH = os.path.join(project_root, 'models',model_field,readname)
-                OUTPUTFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,outputname)
-                DATAFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,dataname)
-                MODELFILE_PATH=os.path.join(project_root, 'models',model_field,model_part,modelname)
-                REQ_PATH = os.path.join(project_root, 'models',model_field,reqname)
-                st.markdown("#### 环境管理功能")
-                st.markdown("**本功能默认使用模型工作流requirements.txt文件，使用一建化功能前，请查阅README.md，检查是否为模型工作流所需全部依赖，部分依赖可能须按指引手动安装**")
-                show_file_selector(f"{model_part}: requirements.txt ", REQ_PATH, is_text=True)
-                show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
-                show_update_button(model_part, REQ_PATH)
-                show_create_button(model_part,REQ_PATH)
-                st.markdown("**模型工作流核心文件**")
-                show_file_selector(f"{model_part}: Output Script", OUTPUTFILE_PATH)
-                show_file_selector(f"{model_part}: Data Script", DATAFILE_PATH)
-                show_file_selector(f"{model_part}: Model Script", MODELFILE_PATH)
+    # 使用 selected_model_names 替代原来的 selected_models
+    if "all" in st.session_state["selected_model_names"]:
+        model = [m for m in model_options if m != "all"]
+    else:
+        model = st.session_state["selected_model_names"]
+        
+    # 环境管理部分使用工作流名称
+    if model and st.session_state["selected_model_workflow"]:
+        model_workflow = st.session_state["selected_model_workflow"]
+        readname = f"{model_workflow}_readme.md"
+        outputname = f"{model_workflow}_output.py"
+        dataname = f"{model_workflow}_data.py"
+        modelname = f"{model_workflow}_model.py"
+        reqname =  f"{model_workflow}_requirements.txt"
+        READMEFILE_PATH = os.path.join(project_root, 'models', model_field, readname)
+        OUTPUTFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, outputname)
+        DATAFILE_PATH = os.path.join(project_root, 'models', model_field, model_workflow, dataname)
+        MODELFILE_PATH=os.path.join(project_root, 'models', model_field, model_workflow, modelname)
+        REQ_PATH = os.path.join(project_root, 'models', model_field, reqname)
+        
+        st.markdown("#### 环境管理功能")
+        st.markdown("**本功能默认使用模型工作流requirements.txt文件，使用一建化功能前，请查阅README.md，检查是否为模型工作流所需全部依赖，部分依赖可能须按指引手动安装**")
+        show_file_selector(f"{model_workflow}: requirements.txt ", REQ_PATH, is_text=True)
+        show_file_selector(f"{model_workflow}: README.md", READMEFILE_PATH, is_markdown=True)
+        show_update_button(model_workflow, REQ_PATH)
+        show_create_button(model_workflow, REQ_PATH)
+        st.markdown("**模型工作流核心文件**")
+        show_file_selector(f"{model_workflow}: Output Script", OUTPUTFILE_PATH)
+        show_file_selector(f"{model_workflow}: Data Script", DATAFILE_PATH)
+        show_file_selector(f"{model_workflow}: Model Script", MODELFILE_PATH)
+
     #--------datasets 只有在 model 出现的时候再出现
     def on_dataset_change():
         st.session_state["selected_tasks"] = []  # 重置任务选择

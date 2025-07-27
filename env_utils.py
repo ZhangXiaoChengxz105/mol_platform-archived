@@ -452,7 +452,7 @@ def update_environment(base_requirements, additional_requirements = [], env_name
         import traceback
         traceback.print_exc()
         return False
-       
+    
 def main():
     # 注册信号处理器
     signal.signal(signal.SIGINT, signal_handler)
