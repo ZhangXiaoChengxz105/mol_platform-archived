@@ -209,7 +209,30 @@ def get_datasets_for_model(model_list, model_map):
 
     common_datasets = set.intersection(*all_dataset_sets)
     return sorted(list(common_datasets))
+def get_envs():
+    env_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../environment.yaml')
 
+    try:
+        with open(env_root, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+    except Exception as e:
+        print(f"读取文件失败: {e}")
+        return {}
+
+    if not isinstance(data, dict):
+        print("文件内容格式异常，期望顶层为字典")
+        return {}
+
+    # 最高级键和对应所有次级键
+    result = {}
+    for top_key, sub_dict in data.items():
+        if isinstance(sub_dict, dict):
+            result[top_key] = list(sub_dict.keys())
+        else:
+            result[top_key] = []
+
+    return result
+     
 
 
 
@@ -246,34 +269,72 @@ def get_top_level_keys():
         return list(data.keys())
     else:
         return []
-def run_long_command(cmd, description="正在执行命令..."):
-    import subprocess
-    import time
+def update(file, envname, model):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
 
-    with st.spinner(description):
-        try:
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+    cmd = [sys.executable, script_path, "update", '-r', file, '-e', envname]
 
-            stdout, stderr = process.communicate()
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        st.success("更新执行成功")
+    except subprocess.CalledProcessError as e:
+        st.error(f"更新执行失败，返回码：{e.returncode}")
+        return False
 
-            if process.returncode != 0:
-                st.error("命令执行失败 ❌")
-                if stderr:
-                    st.code(stderr, language="bash")
-                return False
-            else:
-                if stdout:
-                    st.code(stdout, language="bash")
-                return True
-        except Exception as e:
-            st.error("执行过程中发生异常 ❌")
-            st.exception(e)
+    try:
+        with open(env_md_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+
+        if envname not in data:
+            st.error(f"错误: environment.yaml 顶层找不到环境名 '{envname}'")
             return False
+
+        data[envname][model] = file
+
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+
+        return True
+    except Exception as e:
+        st.error(f"写入 environment.yaml 失败: {e}")
+        return False
+
+
+def create(model, file, envname, version):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
+    base_reqs = os.path.abspath(os.path.join(current_dir, '../requirements.txt'))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+
+    cmd = [sys.executable, script_path, 'create', '-r', base_reqs, '-a', file, '-e', envname, '-p', version]
+
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        st.success("创建执行成功")
+    except subprocess.CalledProcessError as e:
+        st.error(f"创建执行失败，返回码：{e.returncode}")
+        return False
+
+    try:
+        with open(env_md_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+
+        if envname not in data or not isinstance(data[envname], dict):
+            data[envname] = {}
+
+        data[envname][model] = file
+        data[envname]['molplat'] = "requirements.txt"
+
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+
+        return True
+    except Exception as e:
+        st.error(f"写入 environment.yaml 失败: {e}")
+        return False
+
 
 def show_update_button(model, reqname):
     with st.expander("更新环境"):
@@ -289,88 +350,34 @@ def show_update_button(model, reqname):
             success = update(reqname, env_name, model)
             if success:
                 st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
-                st.text("请退出并重新打开以生效")
+                st.text("请退出重新打开以生效")
             else:
                 st.error("❌ Update 失败，请检查输出信息")
 
-def update(file, envname, model):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
-    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
 
-    cmd = [sys.executable, script_path, "update", '-r', file, '-e', envname]
-    success = run_long_command(cmd, description=f"正在更新环境 {envname}...")
-
-    if not success:
-        return False
-
-    # ✅ 保留你的 environment.yaml 写入逻辑
-    try:
-        with open(env_md_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f) or {}
-
-        if envname not in data:
-            st.error(f"错误: environment.yaml 顶层找不到环境名 '{envname}'")
-            return False
-
-        data[envname][model] = file
-
-        with open(env_md_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(data, f, allow_unicode=True)
-
-        return True
-
-    except Exception as e:
-        st.error(f"写入 environment.yaml 失败: {e}")
-        return False
-
-def show_create_button(reqname, model):
+def show_create_button(model, reqname):
     with st.expander("创建环境"):
         st.markdown("### 创建模型配置")
-        col1, col2 = st.columns(2)
 
-        with col1:
-            py_version = st.text_input("Python 版本", value="3.8", max_chars=10)
+        col3, col4 = st.columns(2)
 
-        with col2:
+        with col3:
+            py_version = st.text_input("Python 版本", value="3.11.8", max_chars=10)
+
+        with col4:
             env_name = st.text_input("环境名字", max_chars=20)
 
         if st.button("Create"):
-            if not py_version.strip() or not env_name.strip():
-                st.error("请填写完整的 Python 版本和环境名字！")
+            if not py_version.strip() or not env_name.strip() or not model.strip() or not reqname.strip():
+                st.error("请填写所有字段，包括模型名、依赖文件、Python 版本和环境名！")
             else:
-                create(model, reqname, env_name, py_version)
-                st.text("创建环境中")
-                st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
-                st.text("创建新环境，请退出重新打开")
-
-def create(model, file, envname, version):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
-    base_reqs = os.path.abspath(os.path.join(current_dir, '../requirements.txt'))
-    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
-
-    cmd = [sys.executable, script_path, 'create', '-r', base_reqs, '-a', file, '-e', envname, '-p', version]
-
-    try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print("创建成功，输出:")
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        print(f"创建失败，返回码：{e.returncode}")
-        print(e.stderr)
-        return
-
-    with open(env_md_path, 'r', encoding='utf-8') as f:
-        data = yaml.safe_load(f) or {}
-
-    if envname not in data or not isinstance(data[envname], dict):
-        data[envname] = {}
-
-    data[envname][model] = file
-
-    with open(env_md_path, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(data, f, allow_unicode=True)
+                st.text("创建环境中⏳")
+                success = create(model, reqname, env_name, py_version)
+                if success:
+                    st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
+                    st.text("创建新环境，请退出重新打开")
+                else:
+                    st.error("创建环境失败，请查看上方错误信息。")
 
 def on_select_change():
     # 选框改变时，如果选择“自定义输入”，保持final_model_type不变等待输入框输入
@@ -419,6 +426,37 @@ with exit_col_btn:
 
 
 col1, col2 = st.columns([10, 2])
+with col1:
+    envs = get_envs()
+
+    # 通过 HTML 和 CSS 控制标题字体大小
+    st.markdown("""
+        <style>
+        .small-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .env-item {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="small-title">所有已创建环境以及其支持的模型</div>', unsafe_allow_html=True)
+    
+    # 显示环境和次级键
+    for top_key, sub_keys in envs.items():
+        sub_keys_str = ", ".join(sub_keys) if sub_keys else "(无次级键)"
+        st.markdown(f'<div class="env-item"><b>{top_key}</b>: {sub_keys_str}</div>', unsafe_allow_html=True)
+
+
+    current_env = os.environ.get('CONDA_DEFAULT_ENV', '未检测到当前环境')
+
+    st.markdown(f"<div style='font-size:14px;'>当前环境为：{current_env}</div>", unsafe_allow_html=True)
+    st.write("")
+    st.write("")
+    
 with col2:
     if st.button("➕ 添加数据集与模型（再点击一次以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
@@ -658,8 +696,8 @@ else:
                 MODELFILE_PATH=os.path.join(project_root, 'models',model_field,model_part,modelname)
                 REQ_PATH = os.path.join(project_root, 'models',model_field,reqname)
                 show_file_selector(f"{model_part}: requirements.txt", REQ_PATH, is_text=True)
-                show_update_button(model_part, reqname)
-                show_create_button(model_part,reqname)
+                show_update_button(model_part, REQ_PATH)
+                show_create_button(model_part,REQ_PATH)
                 show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
                 show_file_selector(f"{model_part}: Output Script", OUTPUTFILE_PATH)
                 show_file_selector(f"{model_part}: Data Script", DATAFILE_PATH)
