@@ -18,6 +18,8 @@
     python env_utils.py -h
 以查看环境配置工具的使用说明
 
+▶ 平台关闭
+请在终端先ctrl+c关闭进程，再关闭 streamlit 网站页面
 
 ▶ 提供模版模型文件moleculenet_model.zip， 数据文件moleculenet_data.zip
 获取链接：
