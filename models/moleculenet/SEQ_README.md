@@ -13,9 +13,14 @@ contribution includes: Biult the workflow, finetuned origin model's parameter an
     python=3.11.8
     
     pip install torch torch-geometric rdkit==2024.3.5 numpy scikit-learn==1.7.0 transformers pandas xgboost
-	
-    
-## 配置fast-transformers：
+可根据SEQ_requirements.txt(模型依赖), 使用env_utils.py，快速创建独立模型环境，安装依赖
+
+    python env_utils.py create -a models/moleculenet/SEQ_requirements.txt -e your_env_name -p 3.11.8
+
+环境创建后请在使用平台时指定使用模型工作流对应的环境
+## **seq 额外配置** (需手动配置)
+seq 工作流需使用编译版本的 fast-transformers：
+### 配置fast-transformers：
     conda install -c conda-forge cxx-compiler -y
     git clone https://github.com/idiap/fast-transformers.git
 ### （其他克隆方法）
@@ -29,6 +34,7 @@ contribution includes: Biult the workflow, finetuned origin model's parameter an
 ### 路径设置
     set LD_LIBRARY_PATH=%CONDA_PREFIX%\lib;%LD_LIBRARY_PATH% # windows
     export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH # linux
+
 # **模块结构**
     moleculenet/
     ├── SEQ/                        # 模型核心文件

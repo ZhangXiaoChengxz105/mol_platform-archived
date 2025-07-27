@@ -12,7 +12,11 @@ contribution includes: Biult the workflow, finetuned origin model's parameter an
     python=3.11.8
     
     pip install torch torch-geometric rdkit==2024.3.5 numpy scikit-learn==1.7.0 transformers pandas xgboost
-	
+可根据GNN_requirements.txt(模型依赖), 使用env_utils.py，快速创建独立模型环境，安装依赖
+
+    python env_utils.py create -a models/moleculenet/GNN_requirements.txt -e your_env_name -p 3.11.8
+环境创建后请在使用平台时指定使用模型工作流对应的环境
+
 # **模块结构**
     moleculenet/
     ├── GNN/                        # 模型核心文件

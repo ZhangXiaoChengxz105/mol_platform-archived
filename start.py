@@ -31,7 +31,7 @@ def check_initialization():
     else:
         cur_env = get_current_env_name()
         
-        response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境）(y/n): ").strip().lower()
+        response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境, 默认不更新）(y/n): ").strip().lower()
         if response == 'y':
             print(f"开始更新环境...")
             # 执行更新操作
