@@ -1,2 +1,4 @@
 test:
   molplat: requirements.txt
+molplat:
+  molplat: requirements.txt

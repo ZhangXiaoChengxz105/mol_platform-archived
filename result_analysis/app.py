@@ -147,8 +147,9 @@ def get_submodel(model_type, model):
 
         
 
-def show_file_selector(label: str, file_path: str, is_markdown: bool = False, height: int = 500) -> None:
-    """显示复选框，勾选后展示带固定高度滚动条的文件内容"""
+
+def show_file_selector(label: str, file_path: str, is_markdown: bool = False, is_text: bool = False, height: int = 500) -> None:
+    """显示复选框，勾选后展示文件内容，支持 markdown、python 和 txt 形式，带固定高度滚动条"""
     if not os.path.exists(file_path):
         st.write(f"{label} 文件不存在：{file_path}")
         return
@@ -161,6 +162,8 @@ def show_file_selector(label: str, file_path: str, is_markdown: bool = False, he
 
         if is_markdown:
             render_scrollable_markdown(content, height=height)
+        elif is_text:
+            st.code(content, language=None, line_numbers=True, height=height)  # txt 内容无高亮
         else:
             st.code(content, language="python", line_numbers=True, height=height)
 
@@ -232,8 +235,142 @@ if "smiles_eval_mode" not in st.session_state:
     st.session_state["smiles_eval_mode"] = "random"
 if "smiles_eval_num" not in st.session_state:
     st.session_state["smiles_eval_num"] = 200
+def get_top_level_keys():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    yaml_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
 
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
 
+    if isinstance(data, dict):
+        return list(data.keys())
+    else:
+        return []
+def run_long_command(cmd, description="正在执行命令..."):
+    import subprocess
+    import time
+
+    with st.spinner(description):
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            stdout, stderr = process.communicate()
+
+            if process.returncode != 0:
+                st.error("命令执行失败 ❌")
+                if stderr:
+                    st.code(stderr, language="bash")
+                return False
+            else:
+                if stdout:
+                    st.code(stdout, language="bash")
+                return True
+        except Exception as e:
+            st.error("执行过程中发生异常 ❌")
+            st.exception(e)
+            return False
+
+def show_update_button(model, reqname):
+    with st.expander("更新环境"):
+        keys = get_top_level_keys()
+        if not keys:
+            st.warning("environment.yaml 文件为空或不存在，无法选择环境名。")
+            return
+
+        env_name = st.selectbox("选择环境名字", keys)
+
+        if st.button("Update"):
+            st.text("⏳ 开始更新...")
+            success = update(reqname, env_name, model)
+            if success:
+                st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
+                st.text("请退出并重新打开以生效")
+            else:
+                st.error("❌ Update 失败，请检查输出信息")
+
+def update(file, envname, model):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+
+    cmd = [sys.executable, script_path, "update", '-r', file, '-e', envname]
+    success = run_long_command(cmd, description=f"正在更新环境 {envname}...")
+
+    if not success:
+        return False
+
+    # ✅ 保留你的 environment.yaml 写入逻辑
+    try:
+        with open(env_md_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+
+        if envname not in data:
+            st.error(f"错误: environment.yaml 顶层找不到环境名 '{envname}'")
+            return False
+
+        data[envname][model] = file
+
+        with open(env_md_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True)
+
+        return True
+
+    except Exception as e:
+        st.error(f"写入 environment.yaml 失败: {e}")
+        return False
+
+def show_create_button(reqname, model):
+    with st.expander("创建环境"):
+        st.markdown("### 创建模型配置")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            py_version = st.text_input("Python 版本", value="3.8", max_chars=10)
+
+        with col2:
+            env_name = st.text_input("环境名字", max_chars=20)
+
+        if st.button("Create"):
+            if not py_version.strip() or not env_name.strip():
+                st.error("请填写完整的 Python 版本和环境名字！")
+            else:
+                create(model, reqname, env_name, py_version)
+                st.text("创建环境中")
+                st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
+                st.text("创建新环境，请退出重新打开")
+
+def create(model, file, envname, version):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.abspath(os.path.join(current_dir, '../env_utils.py'))
+    base_reqs = os.path.abspath(os.path.join(current_dir, '../requirements.txt'))
+    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+
+    cmd = [sys.executable, script_path, 'create', '-r', base_reqs, '-a', file, '-e', envname, '-p', version]
+
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print("创建成功，输出:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"创建失败，返回码：{e.returncode}")
+        print(e.stderr)
+        return
+
+    with open(env_md_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+
+    if envname not in data or not isinstance(data[envname], dict):
+        data[envname] = {}
+
+    data[envname][model] = file
+
+    with open(env_md_path, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(data, f, allow_unicode=True)
 
 def on_select_change():
     # 选框改变时，如果选择“自定义输入”，保持final_model_type不变等待输入框输入
@@ -514,10 +651,15 @@ else:
                 outputname = f"{model_part}_output.py"
                 dataname = f"{model_part}_data.py"
                 modelname = f"{model_part}_model.py"
+                reqname =  f"{model_part}_requirements.txt"
                 READMEFILE_PATH = os.path.join(project_root, 'models',model_field,readname)
                 OUTPUTFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,outputname)
                 DATAFILE_PATH = os.path.join(project_root, 'models',model_field,model_part,dataname)
                 MODELFILE_PATH=os.path.join(project_root, 'models',model_field,model_part,modelname)
+                REQ_PATH = os.path.join(project_root, 'models',model_field,reqname)
+                show_file_selector(f"{model_part}: requirements.txt", REQ_PATH, is_text=True)
+                show_update_button(model_part, reqname)
+                show_create_button(model_part,reqname)
                 show_file_selector(f"{model_part}: README.md", READMEFILE_PATH, is_markdown=True)
                 show_file_selector(f"{model_part}: Output Script", OUTPUTFILE_PATH)
                 show_file_selector(f"{model_part}: Data Script", DATAFILE_PATH)
