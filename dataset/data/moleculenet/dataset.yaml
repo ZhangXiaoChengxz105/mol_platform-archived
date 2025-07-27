@@ -1,50 +1,119 @@
-data_type: "smiles"
-dataset_names: ['Tox21', 'ClinTox', 'MUV', 'SIDER', 'BBBP', 'HIV', 'BACE', 'FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
-regression_datasets: ['FreeSolv', 'ESOL', 'Lipo', 'qm7', 'qm8', 'qm9']
+data_type: 'nothing'
+dataset_names: ['Tox21', 'HIV', 'qm9', 'qm7', 'qm8', 'SIDER', 'ClinTox', 'Lipo', 'ESOL', 'BACE', 'BBBP', 'FreeSolv', 'MUV']
+regression_datasets: ['qm8', 'ESOL', 'Lipo', 'qm9', 'FreeSolv', 'qm7']
 
 config: {
-    # 分类任务数据集
-    'Tox21': [
-        'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD',
-        'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53'
+    'BACE': [
+        'Class',
     ],
-    'ClinTox': ['FDA_APPROVED', 'CT_TOX'],
+    'BBBP': [
+        'p_np',
+    ],
+    'ClinTox': [
+        'FDA_APPROVED',
+        'CT_TOX',
+    ],
+    'ESOL': [
+        'measured log solubility in mols per litre',
+    ],
+    'FreeSolv': [
+        'expt',
+    ],
+    'HIV': [
+        'HIV_active',
+    ],
+    'Lipo': [
+        'exp',
+    ],
     'MUV': [
-        'MUV-466', 'MUV-548', 'MUV-600', 'MUV-644', 'MUV-652', 'MUV-689',
-        'MUV-692', 'MUV-712', 'MUV-713', 'MUV-733', 'MUV-737', 'MUV-810',
-        'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859'
+        'MUV-832',
+        'MUV-466',
+        'MUV-652',
+        'MUV-713',
+        'MUV-692',
+        'MUV-737',
+        'MUV-600',
+        'MUV-858',
+        'MUV-859',
+        'MUV-712',
+        'MUV-733',
+        'MUV-689',
+        'MUV-852',
+        'MUV-810',
+        'MUV-846',
+        'MUV-548',
+        'MUV-644',
     ],
     'SIDER': [
-        'Hepatobiliary disorders', 'Metabolism and nutrition disorders',
-        'Product issues', 'Eye disorders', 'Investigations',
-        'Musculoskeletal and connective tissue disorders',
-        'Gastrointestinal disorders', 'Social circumstances',
-        'Immune system disorders', 'Reproductive system and breast disorders',
-        'Neoplasms benign, malignant and unspecified (incl cysts and polyps)',
-        'General disorders and administration site conditions',
-        'Endocrine disorders', 'Surgical and medical procedures',
-        'Vascular disorders', 'Blood and lymphatic system disorders',
-        'Skin and subcutaneous tissue disorders',
-        'Congenital, familial and genetic disorders', 'Infections and infestations',
-        'Respiratory, thoracic and mediastinal disorders', 'Psychiatric disorders',
+        'Immune system disorders',
+        'Respiratory, thoracic and mediastinal disorders',
+        'Injury, poisoning and procedural complications',
         'Renal and urinary disorders',
+        'Product issues',
+        'Investigations',
+        'Neoplasms benign, malignant and unspecified (incl cysts and polyps)',
+        'Psychiatric disorders',
+        'General disorders and administration site conditions',
+        'Gastrointestinal disorders',
+        'polyps)',
         'Pregnancy, puerperium and perinatal conditions',
-        'Ear and labyrinth disorders', 'Cardiac disorders',
-        'Nervous system disorders', 'Injury, poisoning and procedural complications'
+        'Social circumstances',
+        'Eye disorders',
+        'Hepatobiliary disorders',
+        'Reproductive system and breast disorders',
+        'Endocrine disorders',
+        'Nervous system disorders',
+        'Blood and lymphatic system disorders',
+        'Neoplasms benign, malignant and unspecified (incl cysts and ',
+        'Congenital, familial and genetic disorders',
+        'Cardiac disorders',
+        'Skin and subcutaneous tissue disorders',
+        'Infections and infestations',
+        'Metabolism and nutrition disorders',
+        'Surgical and medical procedures',
+        'Ear and labyrinth disorders',
+        'Vascular disorders',
+        'Musculoskeletal and connective tissue disorders',
     ],
-    'BBBP': ['p_np'],
-    'HIV': ['HIV_active'],
-    'BACE': ['Class'],
-    
-    # 回归任务数据集
-    'Lipo': ['exp'],
-    'FreeSolv': ['expt'],
-    'ESOL': ['measured log solubility in mols per litre'],
-
-    'qm7': ['u0_atom'],
+    'Tox21': [
+        'NR-AR-LBD',
+        'NR-ER-LBD',
+        'NR-AR',
+        'SR-ATAD5',
+        'SR-HSE',
+        'NR-AhR',
+        'NR-PPAR-gamma',
+        'NR-Aromatase',
+        'SR-MMP',
+        'NR-ER',
+        'SR-p53',
+        'SR-ARE',
+    ],
+    'qm7': [
+        'u0_atom',
+    ],
     'qm8': [
-        'E1-CC2', 'E2-CC2', 'f1-CC2', 'f2-CC2', 'E1-PBE0', 'E2-PBE0',
-        'f1-PBE0', 'f2-PBE0', 'E1-CAM', 'E2-CAM', 'f1-CAM', 'f2-CAM'
+        'f1-CC2',
+        'E1-PBE0',
+        'f1-CAM',
+        'E1-CAM',
+        'f2-CC2',
+        'f1-PBE0',
+        'f2-PBE0',
+        'f2-CAM',
+        'E2-CC2',
+        'E2-CAM',
+        'E1-CC2',
+        'E2-PBE0',
     ],
-    'qm9': ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'cv']
+    'qm9': [
+        'alpha',
+        'mu',
+        'gap',
+        'r2',
+        'lumo',
+        'cv',
+        'homo',
+        'zpve',
+    ],
 }

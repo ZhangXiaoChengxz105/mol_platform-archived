@@ -67,33 +67,30 @@ def load_yaml_from_streamlit(uploaded_file):
         return {}
 
 def merge_yaml_configs(config1, config2):
-    """
-    合并两个已加载的YAML配置，冲突时第二个配置覆盖第一个
-    
-    参数:
-        config1: 第一个已加载的配置字典
-        config2: 第二个已加载的配置字典
-    
-    返回:
-        合并后的配置字典
-    """
-    # 基础合并
-    merged = {
-        'config': {**config1.get('config', {}), **config2.get('config', {})},
-        'data_type': config2.get('data_type', config1.get('data_type', 'smiles')),
-    }
-    
-    # 合并列表（去重）
+    merged = {}
+
+    # 合并 config: 合并 key，并对值（list）去重
+    merged_config = dict(config1.get('config', {}))
+    for k, v in config2.get('config', {}).items():
+        if k in merged_config:
+            merged_config[k] = list(set(merged_config[k]) | set(v))
+        else:
+            merged_config[k] = v
+    merged['config'] = merged_config
+
+    # data_type: 优先使用 config2
+    merged['data_type'] = config2.get('data_type', config1.get('data_type', 'smiles'))
+
+    # dataset_names 合并去重
     merged['dataset_names'] = list(
-        set(config1.get('dataset_names', [])) | 
-        set(config2.get('dataset_names', []))
+        set(config1.get('dataset_names', [])) | set(config2.get('dataset_names', []))
     )
-    
+
+    # regression_datasets 合并去重
     merged['regression_datasets'] = list(
-        set(config1.get('regression_datasets', [])) | 
-        set(config2.get('regression_datasets', []))
+        set(config1.get('regression_datasets', [])) | set(config2.get('regression_datasets', []))
     )
-    
+
     return merged
 def merge_model_configs(config1, config2):
     """
@@ -132,24 +129,20 @@ def merge_model_configs(config1, config2):
     return merged_config
 
 def save_config_as_python_style(config: dict, filepath: str):
-    """
-    将配置保存为类似Python代码风格的文件，
-    其中data_type、dataset_names、regression_datasets为Python格式，
-    config字段整体用Python dict代码风格写入。
-
-    参数:
-        config: dict，配置数据，包含data_type、dataset_names、regression_datasets、config等键
-        filepath: str，保存路径
-    """
     with open(filepath, 'w', encoding='utf-8') as f:
-        # 写基本字段，使用repr保证写成Python代码格式的字符串或列表
+        # 写基本字段
         f.write(f"data_type: {repr(config.get('data_type', 'smiles'))}\n")
         f.write(f"dataset_names: {repr(config.get('dataset_names', []))}\n")
         f.write(f"regression_datasets: {repr(config.get('regression_datasets', []))}\n\n")
 
-        # 写 config 字段，使用pprint.pformat格式化字典
-        config_obj = config.get('config', {})
-        f.write("config: " + pprint.pformat(config_obj, indent=4) + "\n")
+        # 写 config 字段，换行美化
+        f.write("config: {\n")
+        for k, v in config.get('config', {}).items():
+            f.write(f"    {repr(k)}: [\n")
+            for item in v:
+                f.write(f"        {repr(item)},\n")
+            f.write("    ],\n")
+        f.write("}\n")
 def open_and_merge_data_yaml(model_type,data_config):
     DATA_CONFIG_DIR = os.path.join(DATA_PATH,model_type,'dataset.yaml')
     new_config = load_yaml_from_streamlit(data_config)
@@ -161,7 +154,7 @@ def open_and_merge_data_yaml(model_type,data_config):
     else:
         save_config_as_python_style(new_config,DATA_CONFIG_DIR)
         
-def process_data(model_type, data_config, data_zip):
+def process_data(model_type, data_config, data_zip,processed_data):
     D_R = os.path.join(DATA_PATH, model_type)
     os.makedirs(D_R, exist_ok=True)
     temp_extract_dir = os.path.join(D_R, "temp_extract")
@@ -201,7 +194,8 @@ def process_data(model_type, data_config, data_zip):
                 shutil.move(src_path, dst_path)
 
         # 合并配置文件
-        open_and_merge_data_yaml(model_type, data_config)
+        if not processed_data:
+            open_and_merge_data_yaml(model_type, data_config)
         return True
 
     except Exception as e:
@@ -212,30 +206,31 @@ def process_data(model_type, data_config, data_zip):
             shutil.rmtree(temp_extract_dir)
             
     
-def process_model(model_type,model_config,model_zip,data_config,processed_data):
+def process_model(model_type,model_config,model_zip,data_config,processed_data,processed_model):
     M_D = os.path.join(ROOT_PATH,'models')
     NEW_D =os.path.join(M_D,model_type)
     new_config = load_yaml_from_streamlit(model_config)
     MODEL_CONFIG_DIR =os.path.join(M_D,'models.yaml')
     OTHER_CONFIG_DIR = os.path.join(M_D,model_type,'models.yaml')
     os.makedirs(NEW_D, exist_ok=True)
-    if os.path.exists(MODEL_CONFIG_DIR):
-        with open(MODEL_CONFIG_DIR,'r') as f:
-            old_config = yaml.safe_load(f) or {}
-        merged = merge_model_configs(old_config,new_config)
-        save_fixed_config_yaml(merged,MODEL_CONFIG_DIR)
-        section = {k: v for k, v in merged.items() if k == model_type}
-        if os.path.exists(OTHER_CONFIG_DIR):
-            with open(OTHER_CONFIG_DIR,'r') as f:
-                old_section_config = yaml.safe_load(f) or {}
-                section_merged = merge_model_configs(old_section_config,section)
-                save_fixed_config_yaml(section_merged,OTHER_CONFIG_DIR)
-        else:
-            save_fixed_config_yaml(section,OTHER_CONFIG_DIR)
+    if not processed_model:
+        if os.path.exists(MODEL_CONFIG_DIR):
+            with open(MODEL_CONFIG_DIR,'r') as f:
+                old_config = yaml.safe_load(f) or {}
+            merged = merge_model_configs(old_config,new_config)
+            save_fixed_config_yaml(merged,MODEL_CONFIG_DIR)
+            section = {k: v for k, v in merged.items() if k == model_type}
+            if os.path.exists(OTHER_CONFIG_DIR):
+                with open(OTHER_CONFIG_DIR,'r') as f:
+                    old_section_config = yaml.safe_load(f) or {}
+                    section_merged = merge_model_configs(old_section_config,section)
+                    save_fixed_config_yaml(section_merged,OTHER_CONFIG_DIR)
+            else:
+                save_fixed_config_yaml(section,OTHER_CONFIG_DIR)
 
-    else:
-        save_fixed_config_yaml(new_config,MODEL_CONFIG_DIR)
-        save_fixed_config_yaml(new_config,OTHER_CONFIG_DIR)
+        else:
+            save_fixed_config_yaml(new_config,MODEL_CONFIG_DIR)
+            save_fixed_config_yaml(new_config,OTHER_CONFIG_DIR)
 
     if not processed_data:
         # DATA_CONFIG_DIR = os.path.join(DATA_PATH,model_type,'dataset.yaml')
@@ -319,19 +314,23 @@ def process_configs(model_type,model_config,data_config):
     else:
         save_fixed_config_yaml(new_config,MODEL_CONFIG_DIR)
         save_fixed_config_yaml(new_config,OTHER_CONFIG_DIR)
+    open_and_merge_data_yaml(model_type,data_config)
     
     
 
 def process(model_type, model_zip, model_config, data_zip, data_config):
     processed_data = False
+    processed_model = False
     res1, res2 = True,True
-    if model_type != None and model_config!= None and data_config != None and model_zip ==None and data_zip == None:
+    if model_type != None and model_config!= None and data_config != None :
         process_configs(model_type,model_config,data_config)
-    if model_type != None and data_config !=None and data_zip != None:
-        res1=process_data(model_type,data_config,data_zip)
         processed_data = True
-    if model_type != None and data_config !=None and model_zip != None and model_config !=None:
-        res2 = process_model(model_type,model_config,model_zip,data_config,processed_data)
+        processed_model = True
+    if model_type != None and data_config !=None and data_zip != None :
+        res1=process_data(model_type,data_config,data_zip,processed_data)
+        processed_data = True
+    if model_type != None and data_config !=None and model_zip != None and model_config !=None :
+        res2 = process_model(model_type,model_config,model_zip,data_config,processed_data,processed_model)
     if res1 == True and res2 == True:
         return True
     else:
