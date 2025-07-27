@@ -85,12 +85,12 @@ def run_streamlit(env_name):
         return None
     
     print(f"🚀 在环境 '{env_name}' 中启动应用...")
-
+    print(f"📜 启动streamlit应用: {streamlit_script}")
+    cmd = ["conda", "run", "-n", f"{env_name}", "streamlit", "run", streamlit_script]
     # 启动进程并返回引用
     return subprocess.Popen(
-        ["conda", "run", "-n", f"{env_name}", "streamlit", "run", streamlit_script],
+        cmd,
         env=env,
-        start_new_session=True,  # 创建新的进程组
     )
 
 def terminate_process(proc):
