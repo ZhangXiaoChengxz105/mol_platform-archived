@@ -268,7 +268,20 @@ if "model_list_changed" not in st.session_state:
     st.session_state["model_list_changed"] = True
 
 # ----------- 展开按钮 -----------
-col1, col2 = st.columns([10, 1])
+close_tab_js = """
+<script>
+    window.close();
+</script>
+"""
+exit_col_space, exit_col_btn = st.columns([9, 1])
+with exit_col_btn:
+    if st.button("退❌出"):
+        st.warning("程序即将关闭...")
+        st.components.v1.html(close_tab_js)
+        os._exit(0)
+
+
+col1, col2 = st.columns([10, 2])
 with col2:
     if st.button("➕ 添加数据集与模型（再点击一次以返回）"):
         st.session_state["show_model_input"] = not st.session_state["show_model_input"]
