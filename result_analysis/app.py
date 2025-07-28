@@ -523,6 +523,7 @@ def create_yaml(workflow_field,workflow,reqname,envname):
 
 def show_update_button(workflow_field, workflow, reqname):
     with st.expander("更新环境"):
+        st.markdown("### 更新模型配置")
         keys = get_top_level_keys()
         if not keys:
             st.warning("environment.yaml 文件为空或不存在，无法选择环境名。")
