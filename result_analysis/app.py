@@ -474,43 +474,46 @@ def create_yaml(model_field,model,reqname,envname):
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
 
-def show_update_button(model_field,model, reqname):
+def show_update_button(model_field, model, reqname):
     with st.expander("更新环境"):
         keys = get_top_level_keys()
         if not keys:
             st.warning("environment.yaml 文件为空或不存在，无法选择环境名。")
             return
 
+        # 存储参数的键
+        update_key = f"update_params_{model}"
+        
         # 添加唯一key
         env_name = st.selectbox(
             "选择环境名字", 
             keys,
             key=f"update_select_{model}"  # 唯一key
         )
-        manual_key_1 = f"manual_update_{model}"
-        if manual_key_1 not in st.session_state:
-            st.session_state[manual_key_1] = False
-        # 添加唯一key
+        
+        # 始终存储当前参数
+        st.session_state[update_key] = {
+            "model_field": model_field,
+            "model": model,
+            "reqname": reqname,
+            "env_name": env_name
+        }
+        
+        # 更新按钮逻辑
         if st.button("Update", key=f"update_btn_{model}"):
             st.text("⏳ 开始更新...")
-            success = update(model_field,reqname, env_name, model)
+            success = update(model_field, reqname, env_name, model)
             if success:
                 st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
                 st.text("请退出重新打开以生效")
-                st.session_state[manual_key_1] = False
             else:
-                st.session_state[manual_key_1] = True
                 st.error("❌ Update 失败，请检查输出信息")
-                st.session_state[manual_key_1] = {
-                        "model_field": model_field,
-                        "reqname": reqname,
-                        "env_name": env_name,
-                        "model": model
-                    }
-        if st.session_state[manual_key_1] and isinstance(st.session_state[manual_key_1], dict):
-            st.warning("YAML 文件未更新，请手动更新配置文件")
-            if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
-                params = st.session_state[manual_key_1]
+        
+        # 手动更新按钮始终显示
+        st.warning("如果自动更新失败，请手动复制命令到终端操作并更新配置文件")
+        if st.button("手动更新yaml文件", key=f"update_yaml_btn_{model}"):
+            if update_key in st.session_state:
+                params = st.session_state[update_key]
                 done = update_yaml(
                     params["model_field"],
                     params["reqname"],
@@ -519,59 +522,59 @@ def show_update_button(model_field,model, reqname):
                 )
                 if done:
                     st.success("✅ YAML 文件更新成功！")
-                    # 重置状态
-                    st.session_state[manual_key_1] = False
                 else:
                     st.error("❌ YAML 文件更新失败，请检查错误信息")
+            else:
+                st.error("未找到更新参数，请先选择环境")
                 
 
-def show_create_button(model_field,model, reqname):
+def show_create_button(model_field, model, reqname):
     with st.expander("创建环境"):
         st.markdown("### 创建模型配置")
         col3, col4 = st.columns(2)
         with col3:
-            # 添加唯一key
             py_version = st.text_input(
                 "Python 版本", 
                 value="3.11.8", 
                 max_chars=10,
-                key=f"py_version_{model}"  # 唯一key
+                key=f"py_version_{model}"
             )
         with col4:
-            # 添加唯一key
             env_name = st.text_input(
                 "环境名字", 
                 max_chars=20,
-                key=f"env_name_{model}"  # 唯一key
+                key=f"env_name_{model}"
             )
+        
+        # 存储当前参数的键
         manual_key = f"manual_create_{model}"
-        if manual_key not in st.session_state:
-            st.session_state[manual_key] = False
-        # 添加唯一key
+        
+        # 始终存储当前输入参数
+        st.session_state[manual_key] = {
+            "model_field": model_field,
+            "model": model,
+            "reqname": reqname,
+            "env_name": env_name,
+            "py_version": py_version
+        }
+        
+        # 创建按钮逻辑
         if st.button("Create", key=f"create_btn_{model}"):
             if not py_version.strip() or not env_name.strip() or not model.strip() or not reqname.strip():
                 st.error("请填写所有字段，包括模型名、依赖文件、Python 版本和环境名！")
             else:
                 st.text("创建环境中⏳")
-                success = create(model_field,model, reqname, env_name, py_version)
+                success = create(model_field, model, reqname, env_name, py_version)
                 if success:
                     st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
                     st.text("创建新环境，请退出重新打开")
-                    st.session_state[manual_key] = False
                 else:
                     st.error("创建环境失败，请查看上方错误信息。")
-                    # 存储参数以便手动更新
-                    st.session_state[manual_key] = {
-                        "model_field": model_field,
-                        "model": model,
-                        "reqname": reqname,
-                        "env_name": env_name
-                    }
         
-        # 如果创建失败，显示手动更新按钮
-        if st.session_state[manual_key] and isinstance(st.session_state[manual_key], dict):
-            st.warning("YAML 文件未更新，请手动更新配置文件")
-            if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
+        # 手动更新按钮始终显示
+        st.warning("如果自动创建失败，请手动复制命令到终端操作并更新配置文件")
+        if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
+            if manual_key in st.session_state:
                 params = st.session_state[manual_key]
                 done = create_yaml(
                     params["model_field"],
@@ -581,10 +584,10 @@ def show_create_button(model_field,model, reqname):
                 )
                 if done:
                     st.success("✅ YAML 文件更新成功！")
-                    # 重置状态
-                    st.session_state[manual_key] = False
                 else:
                     st.error("❌ YAML 文件更新失败，请检查错误信息")
+            else:
+                st.error("未找到创建参数，请先填写表单")
 
                     
 
