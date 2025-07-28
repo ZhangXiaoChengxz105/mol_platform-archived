@@ -864,7 +864,7 @@ with col2:
 if st.session_state.get("show_model_input", True):
 
     st.markdown("#### 🔧 自定义数据集类型与模型包上传")
-    st.markdown("** 注意，如果模型依赖python库，请在终端自行安装以避免冲突")
+    st.markdown("** 注意，模型上传后需安装配套依赖以正常使用，平台提供针对规范工作流的一键化环境管理功能，非规范工作流请自行安装")
 
     # 上传说明文件展示
     if os.path.exists(UPLOAD_MODEL_README):
@@ -1384,7 +1384,7 @@ if os.path.exists(HISTORY_PATH):
                 # 新增第三列：清除全部历史记录
 
         with col_repair2:
-            if st.button("添加缺失记录", key="add_missing"):
+            if st.button("检测缺失记录", key="add_missing"):
                 # 扫描结果目录获取所有run_id
                 results_dir = os.path.join(project_root, 'results', 'results')
                 existing_run_ids = set(r['run_id'] for r in history_list)
