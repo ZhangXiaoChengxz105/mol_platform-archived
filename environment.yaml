@@ -1,5 +1,2 @@
 molplat:
-  FP: D:\Personal\Desktop\SummerResearch\mol_platform\models\moleculenet\FP_requirements.txt
-  molplat: requirements.txt
-test:
   molplat: requirements.txt

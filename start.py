@@ -42,7 +42,8 @@ def check_initialization():
                 print("环境更新完成！")
             else:
                 print("环境更新失败，请手动检查environment.md")
-
+        else:
+            print("跳过更新")
 def perform_initialization():
     """执行初始化操作，返回是否成功"""
     try:

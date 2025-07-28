@@ -421,17 +421,17 @@ def create(model_field,model, file, envname, version):
     except Exception as e:
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
-def update_yaml(model_field,file,envname,model):
+def update_yaml(workflow_field,file,envname,workflow):
     current_dir= os.path.dirname(os.path.abspath(__file__))
     env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
     try:
         # 读取或创建YAML数据
-        new_model = f"{model_field}_{model}"
+        new_workflow = f"{workflow_field}_{workflow}"
         data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
         
         # 确保环境结构存在
         data.setdefault(envname, {})
-        data[envname][new_model] = file
+        data[envname][new_workflow] = file
         
         # 确保目录存在
         os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
@@ -440,24 +440,71 @@ def update_yaml(model_field,file,envname,model):
         with open(env_md_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
         
-        st.success(f"✅ environment.yaml 更新成功，模型 '{model}' 的依赖已写入")
+        st.success(f"✅ environment.yaml 更新成功，模型 '{workflow}' 的依赖已写入")
         return True
         
     except Exception as e:
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
+def remove_from_yaml(workflow_field, workflow, env_name):
+    try:
+        yaml_path = os.path.join(project_root, "environment.yaml")
+        
+        # 读取现有YAML内容
+        if os.path.exists(yaml_path):
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        else:
+            st.error("environment.yaml 文件不存在")
+            return False
+        
+        # 检查环境是否存在
+        if env_name not in data:
+            st.error(f"环境 '{env_name}' 不存在于配置文件中")
+            return False
+        
+        # 检查模型字段是否存在
+        if workflow_field not in data[env_name]:
+            st.error(f"模型字段 '{workflow_field}' 在环境 '{env_name}' 中不存在")
+            return False
+        
+        # 删除指定模型的记录
+        if workflow in data[env_name][workflow_field]:
+            # 删除模型记录
+            del data[env_name][workflow_field][workflow]
+            
+            # 如果该字段变为空，则删除整个字段
+            if not data[env_name][workflow_field]:
+                del data[env_name][workflow_field]
+            
+            # 如果环境变为空，则删除整个环境
+            if not data[env_name]:
+                del data[env_name]
+            
+            # 保存更新后的YAML
+            with open(yaml_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f, allow_unicode=True, sort_keys=False)
+            
+            return True
+        else:
+            st.error(f"模型 '{workflow}' 在环境 '{env_name}' 的 '{workflow_field}' 字段中不存在")
+            return False
     
-def create_yaml(model_field,model,reqname,envname):
+    except Exception as e:
+        st.error(f"删除记录时出错: {str(e)}")
+        return False
+    
+def create_yaml(workflow_field,workflow,reqname,envname):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
     try:
-        new_model = f"{model_field}_{model}"
+        new_workflow = f"{workflow_field}_{workflow}"
         # 读取或创建YAML数据
         data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
         
         # 确保环境结构存在
         data.setdefault(envname, {})
-        data[envname][new_model] = reqname
+        data[envname][new_workflow] = reqname
         data[envname]['molplat'] = 'requirements.txt'
         
         # 确保目录存在
@@ -474,61 +521,92 @@ def create_yaml(model_field,model,reqname,envname):
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
 
-def show_update_button(model_field, model, reqname):
+def show_update_button(workflow_field, workflow, reqname):
     with st.expander("更新环境"):
         keys = get_top_level_keys()
         if not keys:
             st.warning("environment.yaml 文件为空或不存在，无法选择环境名。")
             return
 
-        # 存储参数的键
-        update_key = f"update_params_{model}"
-        
         # 添加唯一key
         env_name = st.selectbox(
             "选择环境名字", 
             keys,
-            key=f"update_select_{model}"  # 唯一key
+            key=f"update_select_{workflow}"  # 唯一key
         )
         
-        # 始终存储当前参数
-        st.session_state[update_key] = {
-            "model_field": model_field,
-            "model": model,
+        # 存储当前参数
+        current_params = {
+            "workflow_field": workflow_field,
+            "workflow": workflow,
             "reqname": reqname,
             "env_name": env_name
         }
         
-        # 更新按钮逻辑
-        if st.button("Update", key=f"update_btn_{model}"):
-            st.text("⏳ 开始更新...")
-            success = update(model_field, reqname, env_name, model)
-            if success:
-                st.success(f"✅ Update 成功：model={model}, reqname={reqname}, envname={env_name}")
-                st.text("请退出重新打开以生效")
-            else:
-                st.error("❌ Update 失败，请检查输出信息")
-        
-        # 手动更新按钮始终显示
-        st.warning("如果自动更新失败，请手动复制命令到终端操作并更新配置文件")
-        if st.button("手动更新yaml文件", key=f"update_yaml_btn_{model}"):
-            if update_key in st.session_state:
-                params = st.session_state[update_key]
-                done = update_yaml(
-                    params["model_field"],
-                    params["reqname"],
-                    params["env_name"],
-                    params["model"]
-                )
-                if done:
-                    st.success("✅ YAML 文件更新成功！")
+        # 自动更新部分
+        update_clicked = st.button("Update", key=f"update_btn_{workflow}")
+        if update_clicked:
+            with st.spinner("⏳ 正在更新环境..."):
+                success = update(workflow_field, reqname, env_name, workflow)
+                if success:
+                    st.success(f"✅ Update 成功：workflow={workflow}, reqname={reqname}, envname={env_name}")
+                    st.info("请退出重新打开以生效")
                 else:
-                    st.error("❌ YAML 文件更新失败，请检查错误信息")
-            else:
-                st.error("未找到更新参数，请先选择环境")
+                    st.error("❌ Update 失败，请检查输出信息")
+        
+        # 手动更新部分
+        st.warning("如果自动更新失败，请根据工作流README.md手动更新环境。确认更新无误后，请点击下方按钮更新环境列表配置文件")
+        
+        manual_update_clicked = st.button("手动更新环境配置文件", key=f"update_yaml_update_{workflow}")
+        if manual_update_clicked:
+            # 显示确认对话框
+            st.warning("⚠️ 确认已成功安装工作流所有依赖？")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ 确认更新", key=f"confirm_yaml_{workflow}"):
+                    with st.spinner("正在更新环境配置文件..."):
+                        done = update_yaml(
+                            current_params["workflow_field"],
+                            current_params["reqname"],
+                            current_params["env_name"],
+                            current_params["workflow"]
+                        )
+                        if done:
+                            st.success("✅ YAML 文件更新成功！")
+                        else:
+                            st.error("❌ YAML 文件更新失败，请检查错误信息")
+            with col_cancel:
+                if st.button("❌ 取消", key=f"cancel_yaml_{workflow}"):
+                    st.info("已取消更新")
+        
+        # 添加撤销更新功能
+        st.warning("如果不再需要该环境下的模型记录，可以撤销更新（从environment.yaml中删除该记录）")
+        
+        undo_clicked = st.button("撤销更新", key=f"undo_yaml_update{workflow}")
+        if undo_clicked:
+            # 显示确认对话框
+            st.warning(f"⚠️ 确定要从environment.yaml中删除 {workflow} 在 {env_name} 环境下的记录吗？")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ 确认删除", key=f"confirm_undo_{workflow}"):
+                    with st.spinner("正在从环境配置文件中删除..."):
+                        # 实现删除函数
+                        success = remove_from_yaml(
+                            current_params["workflow_field"],
+                            current_params["workflow"],
+                            current_params["env_name"]
+                        )
+                        if success:
+                            st.success("✅ 记录删除成功！")
+                        else:
+                            st.error("❌ 记录删除失败，请检查错误信息")
+            with col_cancel:
+                if st.button("❌ 取消", key=f"cancel_undo_{workflow}"):
+                    st.info("已取消删除")
+        st.markdown("---")
                 
 
-def show_create_button(model_field, model, reqname):
+def show_create_button(workflow_field, workflow, reqname):
     with st.expander("创建环境"):
         st.markdown("### 创建模型配置")
         col3, col4 = st.columns(2)
@@ -537,58 +615,86 @@ def show_create_button(model_field, model, reqname):
                 "Python 版本", 
                 value="3.11.8", 
                 max_chars=10,
-                key=f"py_version_{model}"
+                key=f"py_version_{workflow}"
             )
         with col4:
             env_name = st.text_input(
                 "环境名字", 
                 max_chars=20,
-                key=f"env_name_{model}"
+                key=f"env_name_{workflow}"
             )
-        
-        # 存储当前参数的键
-        manual_key = f"manual_create_{model}"
-        
-        # 始终存储当前输入参数
-        st.session_state[manual_key] = {
-            "model_field": model_field,
-            "model": model,
+
+        current_params = {
+            "workflow_field": workflow_field,
+            "workflow": workflow,
             "reqname": reqname,
             "env_name": env_name,
             "py_version": py_version
         }
         
         # 创建按钮逻辑
-        if st.button("Create", key=f"create_btn_{model}"):
-            if not py_version.strip() or not env_name.strip() or not model.strip() or not reqname.strip():
+        if st.button("Create", key=f"create_btn_{workflow}"):
+            if not py_version.strip() or not env_name.strip() or not workflow.strip() or not reqname.strip():
                 st.error("请填写所有字段，包括模型名、依赖文件、Python 版本和环境名！")
             else:
                 st.text("创建环境中⏳")
-                success = create(model_field, model, reqname, env_name, py_version)
+                success = create(workflow_field, workflow, reqname, env_name, py_version)
                 if success:
                     st.success(f"Create 调用成功，环境名={env_name}, Python版本={py_version}")
                     st.text("创建新环境，请退出重新打开")
                 else:
                     st.error("创建环境失败，请查看上方错误信息。")
         
-        # 手动更新按钮始终显示
-        st.warning("如果自动创建失败，请手动复制命令到终端操作并更新配置文件")
-        if st.button("手动更新yaml文件", key=f"create_yaml_btn_{model}"):
-            if manual_key in st.session_state:
-                params = st.session_state[manual_key]
-                done = create_yaml(
-                    params["model_field"],
-                    params["model"],
-                    params["reqname"],
-                    params["env_name"]
-                )
-                if done:
-                    st.success("✅ YAML 文件更新成功！")
-                else:
-                    st.error("❌ YAML 文件更新失败，请检查错误信息")
-            else:
-                st.error("未找到创建参数，请先填写表单")
-
+        # 手动更新部分
+        st.warning("如果自动创建失败，请根据工作流README.md手动创建环境。确认创建无误后，请点击下方按钮更新环境列表配置文件")
+        
+        manual_update_clicked = st.button("手动更新环境配置文件", key=f"update_yaml_create_{workflow}")
+        if manual_update_clicked:
+            # 显示确认对话框
+            st.warning("⚠️ 确认已成功安装环境和工作流所有依赖？")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ 确认更新", key=f"confirm_yaml_{workflow}"):
+                    with st.spinner("正在更新环境配置文件..."):
+                        done = update_yaml(
+                            current_params["workflow_field"],
+                            current_params["reqname"],
+                            current_params["env_name"],
+                            current_params["workflow"]
+                        )
+                        if done:
+                            st.success("✅ YAML 文件更新成功！")
+                        else:
+                            st.error("❌ YAML 文件更新失败，请检查错误信息")
+            with col_cancel:
+                if st.button("❌ 取消", key=f"cancel_yaml_{workflow}"):
+                    st.info("已取消更新")
+        
+        # 添加撤销更新功能
+        st.warning("如果不再需要该环境下的模型记录，可以撤销更新（从environment.yaml中删除该记录）")
+        
+        undo_clicked = st.button("撤销更新", key=f"undo_yaml_create_{workflow}")
+        if undo_clicked:
+            # 显示确认对话框
+            st.warning(f"⚠️ 确定要从environment.yaml中删除 {workflow}工作流 在 {env_name} 环境下的记录吗？")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ 确认删除", key=f"confirm_undo_{workflow}"):
+                    with st.spinner("正在从环境配置文件中删除..."):
+                        # 实现删除函数
+                        success = remove_from_yaml(
+                            current_params["workflow_field"],
+                            current_params["workflow"],
+                            current_params["env_name"]
+                        )
+                        if success:
+                            st.success("✅ 记录删除成功！")
+                        else:
+                            st.error("❌ 记录删除失败，请检查错误信息")
+            with col_cancel:
+                if st.button("❌ 取消", key=f"cancel_undo_{workflow}"):
+                    st.info("已取消删除")
+        st.markdown("---")
                     
 
 def on_select_change():
@@ -1345,20 +1451,28 @@ if os.path.exists(HISTORY_PATH):
                     st.info("未发现缺失记录")
 
         with col_repair3:
-            if st.button("清除全部历史记录", key="clear_all_history", 
-                         help="⚠️ 清除所有历史记录（不会删除结果文件）"):
-                if st.session_state.get("confirm_clear_all", False):
-                    # 删除历史记录文件
-                    try:
-                        os.remove(HISTORY_PATH)
-                        st.success("已清除全部历史记录！")
-                        st.session_state.pop("confirm_clear_all", None)
+            # 清除全部历史记录 - 使用确认模式
+            if st.session_state.get("clear_all_mode", False):
+                st.warning("⚠️ 确定要清除全部历史记录吗？")
+                col_confirm, col_cancel = st.columns(2)
+                with col_confirm:
+                    if st.button("✅确认清除"):
+                        try:
+                            os.remove(HISTORY_PATH)
+                            st.success("已清除全部历史记录！")
+                            st.session_state.pop("clear_all_mode", None)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"清除失败: {e}")
+                with col_cancel:
+                    if st.button("❌ 取消"):
+                        st.session_state.pop("clear_all_mode", None)
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"清除失败: {e}")
-                else:
-                    st.session_state["confirm_clear_all"] = True
-                    st.warning("确定要清除全部历史记录吗？再次点击按钮确认。")
+            else:
+                if st.button("清除全部历史记录", key="clear_all_history", 
+                             help="⚠️ 清除所有历史记录（不会删除结果文件）"):
+                    st.session_state["clear_all_mode"] = True
+                    st.rerun()
         
         # 为每条记录创建一行
         for i, record in enumerate(history_list):
@@ -1375,35 +1489,48 @@ if os.path.exists(HISTORY_PATH):
                 if st.button("查看结果", key=view_key):
                     # 切换查看状态
                     st.session_state[f"show_{record['run_id']}"] = not st.session_state.get(f"show_{record['run_id']}", False)
+                    # 重置该记录的删除状态
+                    st.session_state.pop(f"delete_mode_{record['run_id']}", None)
+                    st.rerun()
             
-            # 右侧：删除按钮
+            # 右侧：删除按钮 - 使用确认模式
             with col_delete:
-                delete_key = f"delete_{record['run_id']}"
-                if st.button("🗑️", key=delete_key, help="删除此记录"):
-                    # 确认删除
-                    if st.session_state.get(f"confirm_delete_{record['run_id']}", False):
-                        # 删除结果文件夹
-                        run_folder = os.path.join(project_root, 'results', 'results', record['run_id'])
-                        if os.path.exists(run_folder):
-                            try:
-                                shutil.rmtree(run_folder)
-                                st.success(f"已删除结果文件夹: {run_folder}")
-                            except Exception as e:
-                                st.error(f"删除文件夹失败: {e}")
-                        
-                        # 从历史记录中移除
-                        del history_list[i]
-                        
-                        # 保存更新后的历史记录
-                        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
-                            json.dump(history_list, f, indent=2, ensure_ascii=False)
-                        
-                        st.success("历史记录已删除！")
+                if st.session_state.get(f"delete_mode_{record['run_id']}", False):
+                    # 确认删除模式
+                    st.warning(f"删除 {record['run_id']}?")
+                    col_confirm, col_cancel = st.columns(2)
+                    with col_confirm:
+                        if st.button("✅", key=f"confirm_{record['run_id']}"):
+                            # 删除结果文件夹
+                            run_folder = os.path.join(project_root, 'results', 'results', record['run_id'])
+                            if os.path.exists(run_folder):
+                                try:
+                                    shutil.rmtree(run_folder)
+                                    st.success(f"已删除结果文件夹: {run_folder}")
+                                except Exception as e:
+                                    st.error(f"删除文件夹失败: {e}")
+                            
+                            # 从历史记录中移除
+                            del history_list[i]
+                            
+                            # 保存更新后的历史记录
+                            with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+                                json.dump(history_list, f, indent=2, ensure_ascii=False)
+                            
+                            # 清除状态
+                            st.session_state.pop(f"delete_mode_{record['run_id']}", None)
+                            st.session_state.pop(f"show_{record['run_id']}", None)
+                            st.success("历史记录已删除！")
+                            st.rerun()
+                    with col_cancel:
+                        if st.button("❌", key=f"cancel_{record['run_id']}"):
+                            st.session_state.pop(f"delete_mode_{record['run_id']}", None)
+                            st.rerun()
+                else:
+                    # 初始删除按钮
+                    if st.button("🗑️", key=f"init_delete_{record['run_id']}", help="删除此记录"):
+                        st.session_state[f"delete_mode_{record['run_id']}"] = True
                         st.rerun()
-                    else:
-                        # 设置确认标志
-                        st.session_state[f"confirm_delete_{record['run_id']}"] = True
-                        st.warning("确定要删除这条记录吗？再次点击删除按钮确认。")
             
             # 显示结果区域（如果该记录被展开）
             if st.session_state.get(f"show_{record['run_id']}", False):
