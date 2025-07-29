@@ -2,7 +2,6 @@ import os
 import platform
 import signal
 import sys
-import yaml
 from env_utils import create_environment, update_environment, get_current_env_name, get_conda_env_path, run_command_realtime
 import subprocess
 
@@ -61,8 +60,10 @@ def perform_initialization():
         if success:
             print("环境创建完成！\n")
             print("生成平台环境管理文件environment.yaml")
-            config = {env_name: {"molplat": "requirements.txt"}}
-            yaml.dump(config, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "environment.yaml"), "w+"))
+            # config = {env_name: {"molplat": "requirements.txt"}}
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),'environment.yaml')
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write(f"{env_name}:\n  molplat: requirements.txt\n")
 
                 # 创建初始化完成标记
             with open(INIT_FLAG_PATH, 'w') as f:
