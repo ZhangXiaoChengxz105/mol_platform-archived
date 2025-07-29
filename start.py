@@ -107,7 +107,7 @@ def run_streamlit(env_name):
     
     print(f"🚀 在环境 '{env_name}' 中启动应用...")
     print(f"📜 启动streamlit应用: {streamlit_script}")
-    cmd = ["conda", "run", "-n", f"{env_name}", "streamlit", "run", streamlit_script]
+    cmd = ["conda", "run", "-n", f"{env_name}", "--no-capture-output", "streamlit", "run", streamlit_script]
     # 启动进程并返回引用
     return subprocess.Popen(
         cmd,
@@ -147,7 +147,6 @@ if __name__ == "__main__":
     
     # 注册信号处理
     def handle_exit(signum, frame):
-        print("\n终止Streamlit服务...")
         terminate_process(streamlit_proc)
         sys.exit(0)
     
@@ -158,4 +157,5 @@ if __name__ == "__main__":
     try:
         streamlit_proc.wait()
     except KeyboardInterrupt:
+        print("\n终止Streamlit服务...")
         handle_exit(signal.SIGINT, None)
