@@ -100,7 +100,7 @@ def get_local_ip():
 def run_streamlit(env_name):
     """启动Streamlit应用并返回进程对象"""
     streamlit_script = os.path.join("result_analysis", "app.py")
-    
+
     # 设置环境变量
     env = os.environ.copy()
     env["STREAMLIT_SUPPRESS_EMAIL_LOGGING"] = "true"
@@ -112,24 +112,14 @@ def run_streamlit(env_name):
         print(f"❌ 环境 '{env_name}' 不存在！")
         print("请指定正确的环境名称(使用初始化创建的环境名)")
         return None
-    response = input("是否启用服务器模式，启用局域网内部设备访问功能，默认启用(y/n): ").strip().lower()
-    
-    if response in ['no', 'n']:
-        print(f"🚀 在环境 '{env_name}' 中启动应用...(本地模式，仅本机可用)")
-        print(f"📜 启动streamlit应用: {streamlit_script}")
-        cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script]
-    else:
-        print(f"🚀 在环境 '{env_name}' 中启动应用...(服务器模式，局域网内设备均可访问)")
-        print(f"📜 启动streamlit应用: {streamlit_script}")
-        ip = get_local_ip()
-        print(f"📜 服务器部署地址: {ip}, 服务器所在端口:")
-        cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script, "--server.address=0.0.0.0",'--browser.serverAddress=localhost']
 
+    print(f"🚀 在环境 '{env_name}' 中启动应用...")
+    print(f"📜 启动streamlit应用: {streamlit_script}")
+    cmd = ["conda", "run", "-n", f"{env_name}", "--no-capture-output", "streamlit", "run", streamlit_script]
     # 启动进程并返回引用
     return subprocess.Popen(
         cmd,
         env=env,
-        
     )
 
 
