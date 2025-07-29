@@ -33,12 +33,7 @@ def check_initialization():
         print(f"已初始化平台，初始化平台运行环境为: {base_env}")
         cur_env = get_current_env_name()
         
-        response = ""
-        while response not in ["y","yes","n","no"]:
-            response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境, 默认不更新）(y/n): ").strip().lower()
-            if response not in ["y","yes","n","no"]:
-                print("请输入: y/yes or n/no")
-
+        response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境, 默认不更新）(y/n): ").strip().lower()
         if response in ["y","yes"]:
             print(f"开始更新环境...")
             # 执行更新操作
@@ -114,27 +109,6 @@ def run_streamlit(env_name):
         env=env,
     )
 
-def terminate_process(proc):
-    """跨平台终止进程及其子进程"""
-    try:
-        if platform.system() == "Windows":
-            # Windows系统发送CTRL_BREAK信号
-            proc.send_signal(signal.CTRL_BREAK_EVENT)
-        else:
-            # Unix系统终止整个进程组
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        
-        # 等待进程结束
-        proc.wait(timeout=5)
-    except (subprocess.TimeoutExpired, ProcessLookupError):
-        try:
-            # 如果超时，强制终止
-            proc.kill()
-        except Exception:
-            pass
-    except Exception:
-        pass
-
 if __name__ == "__main__":
     # 检查并执行初始化/更新
     check_initialization()
@@ -144,5 +118,3 @@ if __name__ == "__main__":
 
     # 启动主应用
     streamlit_proc = run_streamlit(env_name)
-    
-    # 注册信号处理
