@@ -139,23 +139,10 @@ if __name__ == "__main__":
     # 检查并执行初始化/更新
     check_initialization()
     
-    env_name = input("指定初始平台运行环境（默认molplat，不包含模型配置）: ").strip().lower()
+    env_name = input("\n指定初始平台运行环境（默认molplat，不包含模型配置）: ").strip().lower()
     env_name = env_name if env_name else "molplat"
 
     # 启动主应用
     streamlit_proc = run_streamlit(env_name)
     
     # 注册信号处理
-    def handle_exit(signum, frame):
-        terminate_process(streamlit_proc)
-        sys.exit(0)
-    
-    signal.signal(signal.SIGINT, handle_exit)
-    signal.signal(signal.SIGTERM, handle_exit)
-    
-    # 等待进程结束
-    try:
-        streamlit_proc.wait()
-    except KeyboardInterrupt:
-        print("\n终止Streamlit服务...")
-        handle_exit(signal.SIGINT, None)
