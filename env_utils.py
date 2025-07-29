@@ -335,7 +335,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
             print(f"\n环境 '{env_name}' 已存在！")
             print("请选择操作:")
             print("1. 覆盖并重新创建 (将删除现有环境)")
-            print("2. 更新现有环境")
+            print("2. 更新已有环境")
             print("3. 取消操作")
             choice = input("请输入选择 (1/2/3): ").strip()
             
@@ -348,7 +348,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
                     return False
             elif choice == '2':
                 # 更新现有环境
-                print(f" 更新环境 {env_name}...")
+                print(f" 改为更新已有环境 {env_name}，请耐心等待...")
                 success, failed_files = install_requirements(env_name, all_requirements, upgrade=True)
                 
                 if success:
@@ -375,7 +375,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
             print(" 无效的Python版本格式")
             return False
 
-        print(f"\n正在创建环境 '{env_name}'...")
+        print(f"\n正在创建环境 '{env_name}'，请耐心等待...")
         print("=" * 80)
 
         return_code = run_command_realtime(
@@ -387,7 +387,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
             return False
 
         # 安装依赖
-        print(f" 正在安装依赖...")
+        print(f" 正在安装依赖，请耐心等待...")
         print(f"  基础依赖: {base_requirements}")
         if additional_requirements:
             print(f"  额外依赖: {', '.join(additional_requirements)}")
@@ -447,14 +447,14 @@ def update_environment(base_requirements, additional_requirements = [], env_name
             choice = input(f"环境 '{env_name}' 不存在，是否创建? (y/n): ").strip().lower()
             if choice == 'y':
                 # 创建环境
-                print(f"开始创建新环境 {env_name}...")
+                print(f"开始创建新环境 {env_name}，请耐心等待...")
                 return create_environment(base_requirements, additional_requirements, env_name, DEFAULT_PYTHON_VERSION)
             else:
                 print("操作取消 �")
                 return False
         
         # 安装依赖
-        print(f"正在更新依赖...")
+        print(f"正在更新依赖，请耐心等待...")
         print(f"  基础依赖: {base_requirements}")
         if additional_requirements:
             print(f"  额外依赖: {', '.join(additional_requirements)}")

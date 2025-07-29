@@ -112,21 +112,17 @@ def run_streamlit(env_name):
         print(f"❌ 环境 '{env_name}' 不存在！")
         print("请指定正确的环境名称(使用初始化创建的环境名)")
         return None
-    response = ""
-    while response not in ["y", "yes", "n", "no"]:
-        response = input("是否启用服务器版本，使局域网内部设备能够访问此应用，默认为是: ").strip().lower()
-        if response not in ["y", "yes", "n", "no"]:
-            response = "yes"  # 默认 yes
-
+    response = input("是否启用服务器模式，启用局域网内部设备访问功能，默认启用(y/n): ").strip().lower()
+    
     if response in ['no', 'n']:
-        print(f"🚀 在环境 '{env_name}' 中启动应用...(不启动服务器，仅限本机使用)")
+        print(f"🚀 在环境 '{env_name}' 中启动应用...(本地模式，仅本机可用)")
         print(f"📜 启动streamlit应用: {streamlit_script}")
         cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script]
     else:
-        print(f"🚀 在环境 '{env_name}' 中启动应用...(启动服务器，局域网内设备均可访问)")
+        print(f"🚀 在环境 '{env_name}' 中启动应用...(服务器模式，局域网内设备均可访问)")
         print(f"📜 启动streamlit应用: {streamlit_script}")
         ip = get_local_ip()
-        print(f"📜 服务器部署在地址: {ip}, 服务器所在端口请查看接下来的输出")
+        print(f"📜 服务器部署地址: {ip}, 服务器所在端口:")
         cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script, "--server.address=0.0.0.0",'--browser.serverAddress=localhost']
 
     # 启动进程并返回引用
@@ -142,7 +138,7 @@ if __name__ == "__main__":
     check_initialization()
     
     env_name = input("\n指定初始平台运行环境（默认molplat，不包含模型配置）: ").strip().lower()
-    env_name = env_name if env_name else "molplat"
+    new_env_name = env_name if env_name else "molplat"
 
     # 启动主应用
-    streamlit_proc = run_streamlit(env_name)
+    streamlit_proc = run_streamlit(new_env_name)
