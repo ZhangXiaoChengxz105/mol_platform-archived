@@ -327,7 +327,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
                 env_name = DEFAULT_ENV_NAME
                 print("采用默认环境名称: ", DEFAULT_ENV_NAME)
         else:
-            print(f"\n采用指定环境名称: {env_name}")
+            print(f"采用指定环境名称: {env_name}")
 
         # 检查环境是否已存在
         env_path = get_conda_env_path(env_name)
@@ -375,7 +375,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
             print(" 无效的Python版本格式")
             return False
 
-        print(f" 正在创建环境 '{env_name}'...")
+        print(f"\n正在创建环境 '{env_name}'...")
         print("=" * 80)
 
         return_code = run_command_realtime(
