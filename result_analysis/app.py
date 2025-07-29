@@ -421,32 +421,35 @@ def create(model_field,model, file, envname, version):
     except Exception as e:
         st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
-def update_yaml(workflow_field,file,envname,workflow):
-    current_dir= os.path.dirname(os.path.abspath(__file__))
-    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
+def update_yaml(workflow_key, file_path, envname):
     try:
+        yaml_path = os.path.join(project_root, "environment.yaml")
         # 读取或创建YAML数据
-        new_workflow = f"{workflow_field}_{workflow}"
-        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
+        if os.path.exists(yaml_path):
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        else:
+            st.error("environment.yaml 文件不存在")
+            return False
         
         # 确保环境结构存在
         data.setdefault(envname, {})
-        data[envname][new_workflow] = file
+        data[envname][workflow_key] = file_path
         
         # 确保目录存在
-        os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
+        os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
         
         # 保存更新
-        with open(env_md_path, 'w', encoding='utf-8') as f:
+        with open(yaml_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
         
         st.success(f"✅ environment.yaml 更新成功，模型 '{workflow}' 的依赖已写入")
         return True
         
     except Exception as e:
-        st.error(f"❌ 写入 environment.yaml 失败: {e}")
+        st.error(f"❌ 写入失败: {e}")
         return False
-def remove_from_yaml(workflow_field, workflow, env_name):
+def remove_from_yaml(workflow_key, env_name):
     try:
         yaml_path = os.path.join(project_root, "environment.yaml")
         
@@ -460,65 +463,25 @@ def remove_from_yaml(workflow_field, workflow, env_name):
         
         # 检查环境是否存在
         if env_name not in data:
-            st.error(f"环境 '{env_name}' 不存在于配置文件中")
+            st.error(f"环境 '{env_name}' 不存在于配置文件中，请检查环境配置文件 environment.yaml")
             return False
         
         # 检查模型字段是否存在
-        if workflow_field not in data[env_name]:
-            st.error(f"模型字段 '{workflow_field}' 在环境 '{env_name}' 中不存在")
+        if workflow_key not in data[env_name]:
+            st.error(f"模型字段 '{workflow_key}' 在环境 '{env_name}' 中不存在， 无需删除")
             return False
         
-        # 删除指定模型的记录
-        if workflow in data[env_name][workflow_field]:
-            # 删除模型记录
-            del data[env_name][workflow_field][workflow]
-            
-            # 如果该字段变为空，则删除整个字段
-            if not data[env_name][workflow_field]:
-                del data[env_name][workflow_field]
-            
-            # 如果环境变为空，则删除整个环境
-            if not data[env_name]:
-                del data[env_name]
-            
-            # 保存更新后的YAML
-            with open(yaml_path, "w", encoding="utf-8") as f:
-                yaml.dump(data, f, allow_unicode=True, sort_keys=False)
-            
-            return True
-        else:
-            st.error(f"模型 '{workflow}' 在环境 '{env_name}' 的 '{workflow_field}' 字段中不存在")
-            return False
+
+        # 删除模型记录
+        del data[env_name][workflow_key]
+        # 保存更新后的YAML
+        with open(yaml_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, allow_unicode=True, sort_keys=False)
+        
+        return True
     
     except Exception as e:
         st.error(f"删除记录时出错: {str(e)}")
-        return False
-    
-def create_yaml(workflow_field,workflow,reqname,envname):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    env_md_path = os.path.abspath(os.path.join(current_dir, '../environment.yaml'))
-    try:
-        new_workflow = f"{workflow_field}_{workflow}"
-        # 读取或创建YAML数据
-        data = yaml.safe_load(open(env_md_path, 'r', encoding='utf-8')) or {} if os.path.exists(env_md_path) else {}
-        
-        # 确保环境结构存在
-        data.setdefault(envname, {})
-        data[envname][new_workflow] = reqname
-        data[envname]['molplat'] = 'requirements.txt'
-        
-        # 确保目录存在
-        os.makedirs(os.path.dirname(env_md_path), exist_ok=True)
-        
-        # 保存更新
-        with open(env_md_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
-        
-        st.success(f"✅ environment.yaml 更新成功，环境 '{envname}' 已写入")
-        return True
-        
-    except Exception as e:
-        st.error(f"❌ 写入 environment.yaml 失败: {e}")
         return False
 
 def show_update_button(workflow_field, workflow, reqname):
@@ -526,7 +489,7 @@ def show_update_button(workflow_field, workflow, reqname):
         st.markdown("### 更新模型配置")
         keys = get_top_level_keys()
         if not keys:
-            st.warning("environment.yaml 文件为空或不存在，无法选择环境名。")
+            st.error("environment.yaml 文件为空或不存在，无法选择环境名。")
             return
 
         # 添加唯一key
@@ -538,8 +501,7 @@ def show_update_button(workflow_field, workflow, reqname):
         
         # 存储当前参数
         current_params = {
-            "workflow_field": workflow_field,
-            "workflow": workflow,
+            "workflow_key": f"{workflow_field}_{workflow}",
             "reqname": reqname,
             "env_name": env_name
         }
@@ -560,25 +522,16 @@ def show_update_button(workflow_field, workflow, reqname):
         
         manual_update_clicked = st.button("手动更新环境配置文件", key=f"update_yaml_update_{workflow}")
         if manual_update_clicked:
-            # 显示确认对话框
-            st.warning("⚠️ 确认已成功安装工作流所有依赖？")
-            col_confirm, col_cancel = st.columns(2)
-            with col_confirm:
-                if st.button("✅ 确认更新", key=f"confirm_yaml_{workflow}"):
-                    with st.spinner("正在更新环境配置文件..."):
-                        done = update_yaml(
-                            current_params["workflow_field"],
-                            current_params["reqname"],
-                            current_params["env_name"],
-                            current_params["workflow"]
-                        )
-                        if done:
-                            st.success("✅ YAML 文件更新成功！")
-                        else:
-                            st.error("❌ YAML 文件更新失败，请检查错误信息")
-            with col_cancel:
-                if st.button("❌ 取消", key=f"cancel_yaml_{workflow}"):
-                    st.info("已取消更新")
+            # 显示确认对话框            
+            done = update_yaml(
+                current_params["workflow_key"],
+                current_params["reqname"],
+                current_params["env_name"],
+            )
+            if done:
+                st.success("✅ YAML 文件更新成功！")
+            else:
+                st.error("❌ YAML 文件更新失败，请检查错误信息")
         
         # 添加撤销更新功能
         st.warning("如果不再需要该环境下的模型记录，可以撤销更新（从environment.yaml中删除该记录）")
@@ -586,24 +539,15 @@ def show_update_button(workflow_field, workflow, reqname):
         undo_clicked = st.button("撤销更新", key=f"undo_yaml_update{workflow}")
         if undo_clicked:
             # 显示确认对话框
-            st.warning(f"⚠️ 确定要从environment.yaml中删除 {workflow} 在 {env_name} 环境下的记录吗？")
-            col_confirm, col_cancel = st.columns(2)
-            with col_confirm:
-                if st.button("✅ 确认删除", key=f"confirm_undo_{workflow}"):
-                    with st.spinner("正在从环境配置文件中删除..."):
-                        # 实现删除函数
-                        success = remove_from_yaml(
-                            current_params["workflow_field"],
-                            current_params["workflow"],
-                            current_params["env_name"]
-                        )
-                        if success:
-                            st.success("✅ 记录删除成功！")
-                        else:
-                            st.error("❌ 记录删除失败，请检查错误信息")
-            with col_cancel:
-                if st.button("❌ 取消", key=f"cancel_undo_{workflow}"):
-                    st.info("已取消删除")
+            done = remove_from_yaml(
+                current_params["workflow_key"],
+                current_params["env_name"]
+            )
+            if done:
+                st.success("✅ 记录删除成功！")
+                st.rerun()
+            else:
+                st.error("❌ 记录删除失败，请检查错误信息")
         st.markdown("---")
                 
 
