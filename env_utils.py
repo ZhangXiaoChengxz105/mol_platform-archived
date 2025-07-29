@@ -168,7 +168,7 @@ def get_conda_env_path(env_name):
             print(f" 解析环境列表失败: {str(e)}")
             return None
             
-        print(f"\n无重名环境: {env_name}")
+        print(f"无重名环境: {env_name}")
         return None
         
     except Exception as e:
@@ -303,6 +303,7 @@ def check_disk_space(min_free_gb=5):
     
 def create_environment(base_requirements, additional_requirements = [], env_name: str = None, python_version: str = None):
     """根据指定的requirements文件创建新环境"""
+    print("\n尝试创建新环境...")
     try:
         # 合并所有依赖文件
         all_requirements = [base_requirements] + additional_requirements
@@ -326,7 +327,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
                 env_name = DEFAULT_ENV_NAME
                 print("采用默认环境名称: ", DEFAULT_ENV_NAME)
         else:
-            print(f"\n使用指定环境名称: {env_name}")
+            print(f"\n采用指定环境名称: {env_name}")
 
         # 检查环境是否已存在
         env_path = get_conda_env_path(env_name)
@@ -361,8 +362,6 @@ def create_environment(base_requirements, additional_requirements = [], env_name
             else:
                 print("操作取消")
                 return False
-        else:
-            print(f"\n正在创建新环境 '{env_name}'...")
         # 处理Python版本输入
         if python_version is None:
             python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
