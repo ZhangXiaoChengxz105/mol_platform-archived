@@ -4,6 +4,7 @@ import signal
 import sys
 from env_utils import create_environment, update_environment, get_current_env_name, get_conda_env_path, run_command_realtime
 import subprocess
+import socket
 
 INIT_FLAG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit_init_flag")
 
@@ -85,6 +86,17 @@ def perform_update():
         print(f"更新过程中出错: {e}")
         return False
 
+def get_local_ip():
+    try:
+        # 使用 UDP socket 连接外部 IP，不实际发送数据
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Google DNS，仅用于获取本机出口 IP
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception as e:
+        return "127.0.0.1" 
+
 def run_streamlit(env_name):
     """启动Streamlit应用并返回进程对象"""
     streamlit_script = os.path.join("result_analysis", "app.py")
@@ -100,15 +112,30 @@ def run_streamlit(env_name):
         print(f"❌ 环境 '{env_name}' 不存在！")
         print("请指定正确的环境名称(使用初始化创建的环境名)")
         return None
-    
-    print(f"🚀 在环境 '{env_name}' 中启动应用...")
-    print(f"📜 启动streamlit应用: {streamlit_script}")
-    cmd = ["conda", "run", "-n", f"{env_name}", "--no-capture-output", "streamlit", "run", streamlit_script]
+    response = ""
+    while response not in ["y", "yes", "n", "no"]:
+        response = input("是否启用服务器版本，使局域网内部设备能够访问此应用，默认为是: ").strip().lower()
+        if response not in ["y", "yes", "n", "no"]:
+            response = "yes"  # 默认 yes
+
+    if response in ['no', 'n']:
+        print(f"🚀 在环境 '{env_name}' 中启动应用...(不启动服务器，仅限本机使用)")
+        print(f"📜 启动streamlit应用: {streamlit_script}")
+        cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script]
+    else:
+        print(f"🚀 在环境 '{env_name}' 中启动应用...(启动服务器，局域网内设备均可访问)")
+        print(f"📜 启动streamlit应用: {streamlit_script}")
+        ip = get_local_ip()
+        print(f"📜 服务器部署在地址: {ip}, 服务器所在端口请查看接下来的输出")
+        cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "streamlit", "run", streamlit_script, "--server.address=0.0.0.0",'--browser.serverAddress=localhost']
+
     # 启动进程并返回引用
     return subprocess.Popen(
         cmd,
         env=env,
+        
     )
+
 
 if __name__ == "__main__":
     # 检查并执行初始化/更新
