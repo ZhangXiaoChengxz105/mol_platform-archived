@@ -55,7 +55,7 @@ def signal_handler(signum, frame):
     """处理终止信号"""
     print(f"\n接收到终止信号 ({signum})，清理子进程...")
     terminate_child_processes()
-    sys.exit(1)
+    sys.exit(0)
 
 def run_command_realtime(cmd):
     """运行命令并实时输出到终端"""
@@ -168,7 +168,7 @@ def get_conda_env_path(env_name):
             print(f" 解析环境列表失败: {str(e)}")
             return None
             
-        print(f" 找不到环境: {env_name}")
+        print(f"\n无重名环境: {env_name}")
         return None
         
     except Exception as e:
@@ -274,6 +274,33 @@ def export_environment(output_file):
         traceback.print_exc()
         return False
 
+def check_disk_space(min_free_gb=5):
+    """检查磁盘是否有足够空间"""
+    try:
+        # 获取根分区使用情况
+        import psutil
+        disk = psutil.disk_usage('/')
+        free_gb = disk.free / (1024 ** 3)
+        
+        print(f"🔄 磁盘空间检查: 可用空间 {free_gb:.2f}GB")
+        
+        if free_gb < min_free_gb:
+            print(f"❌ 磁盘空间不足!是否继续? (y/n)")
+            input = ""
+            while input not in ["y","yes","n","no"]:
+                input = input().strip().lower()
+                if input not in ["y","yes","n","no"]:
+                    print("请输入: y/yes or n/no")
+            if input not in ["y", "yes"]:
+                exit(0)
+            return False
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ 无法检查磁盘空间: {str(e)}")
+        # 无法检查时默认允许继续
+        return True
+    
 def create_environment(base_requirements, additional_requirements = [], env_name: str = None, python_version: str = None):
     """根据指定的requirements文件创建新环境"""
     try:
@@ -299,12 +326,12 @@ def create_environment(base_requirements, additional_requirements = [], env_name
                 env_name = DEFAULT_ENV_NAME
                 print("采用默认环境名称: ", DEFAULT_ENV_NAME)
         else:
-            print(f"使用指定环境名称: {env_name}")
+            print(f"\n使用指定环境名称: {env_name}")
 
         # 检查环境是否已存在
         env_path = get_conda_env_path(env_name)
         if env_path:
-            print(f" 环境 '{env_name}' 已存在！")
+            print(f"\n环境 '{env_name}' 已存在！")
             print("请选择操作:")
             print("1. 覆盖并重新创建 (将删除现有环境)")
             print("2. 更新现有环境")
@@ -335,7 +362,7 @@ def create_environment(base_requirements, additional_requirements = [], env_name
                 print("操作取消")
                 return False
         else:
-            print(f"可以创建新环境 '{env_name}'...")
+            print(f"\n正在创建新环境 '{env_name}'...")
         # 处理Python版本输入
         if python_version is None:
             python_version = input("请输入Python版本 (例如 3.11.8): ").strip()
@@ -421,7 +448,7 @@ def update_environment(base_requirements, additional_requirements = [], env_name
             choice = input(f"环境 '{env_name}' 不存在，是否创建? (y/n): ").strip().lower()
             if choice == 'y':
                 # 创建环境
-                print(f" 开始创建环境 {env_name}...")
+                print(f"开始创建新环境 {env_name}...")
                 return create_environment(base_requirements, additional_requirements, env_name, DEFAULT_PYTHON_VERSION)
             else:
                 print("操作取消 �")
@@ -577,7 +604,7 @@ def main():
             success = update_environment(args.requirements, args.additions, args.env_name)
         else:
             print(f" 未知命令: {args.command}")
-            sys.exit(1)
+            sys.exit(0)
     finally:
         # 确保清理所有子进程
         terminate_child_processes()

@@ -6,34 +6,40 @@ import yaml
 from env_utils import create_environment, update_environment, get_current_env_name, get_conda_env_path, run_command_realtime
 import subprocess
 
+INIT_FLAG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit_init_flag")
+
 def check_initialization():
     """检查初始化状态并执行相应操作"""
     # 初始化标记文件路径
-    init_flag = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit_init_flag")
     
     # 检查是否是首次运行
-    if not os.path.exists(init_flag):
-        response = input("检测到首次使用，是否初始化环境？(y/n): ").strip().lower()
-        if response == 'y':
-            print("开始初始化环境...")
+    if not os.path.exists(INIT_FLAG_PATH):
+        response = ""
+        while response not in ["y","yes","n","no"]:
+            response = input("检测到首次使用，是否初始化平台运行环境？(y/n): ").strip().lower()
+            if response not in ["y","yes","n","no"]:
+                print("请输入: y/yes or n/no")
+
+        if response in ["y","yes"]:
+            print("\n开始初始化环境...")
             # 执行初始化操作
-            init_success = perform_initialization()
-            
-            if init_success:
-                # 创建初始化完成标记
-                with open(init_flag, 'w') as f:
-                    f.write("initialized")
-                print("环境初始化完成！")
-            else:
-                print("环境初始化失败，请手动检查environment.md")
-                exit(1)
+            perform_initialization()
+
         else:
             print("跳过初始化，直接启动应用")
     else:
+        with open (INIT_FLAG_PATH) as f:
+            base_env = f.read()
+        print(f"已初始化平台，初始化平台运行环境为: {base_env}")
         cur_env = get_current_env_name()
         
-        response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境, 默认不更新）(y/n): ").strip().lower()
-        if response == 'y':
+        response = ""
+        while response not in ["y","yes","n","no"]:
+            response = input(f"是否更新环境？（平台默认环境molplat，当前环境{cur_env}，可指定更新环境, 默认不更新）(y/n): ").strip().lower()
+            if response not in ["y","yes","n","no"]:
+                print("请输入: y/yes or n/no")
+
+        if response in ["y","yes"]:
             print(f"开始更新环境...")
             # 执行更新操作
             update_success = perform_update()
@@ -47,10 +53,10 @@ def check_initialization():
 def perform_initialization():
     """执行初始化操作，返回是否成功"""
     try:
-        env_name = input("请输入初始环境名称(默认molplat): ").strip()
+        env_name = input("请输入平台初始环境名称(默认molplat): ").strip()
         if not env_name:
-                env_name = "molplat"
-                print("采用默认环境名称: ", "DEFAULT_ENV_NAME")
+            env_name = "molplat"
+            print("采用默认环境名称: ", "molplat")
         # 直接调用env_utils中的函数创建环境
         success = create_environment(
             base_requirements="requirements.txt",
@@ -62,9 +68,16 @@ def perform_initialization():
             print("生成平台环境管理文件environment.yaml")
             config = {env_name: {"molplat": "requirements.txt"}}
             yaml.dump(config, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "environment.yaml"), "w+"))
+
+                # 创建初始化完成标记
+            with open(INIT_FLAG_PATH, 'w') as f:
+                f.write(env_name)
+            print("环境初始化完成！")
         return success
     except Exception as e:
         print(f"初始化过程中出错: {e}")
+        print("环境初始化失败，请手动检查environment.md")
+        exit(1)
         return False
 
 def perform_update():
