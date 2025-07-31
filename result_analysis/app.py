@@ -1204,7 +1204,65 @@ else:
             st.session_state["smiles_text_input"] = text
             smiles = [s.strip() for s in text.split(",") if s.strip()]
             st.session_state["smiles_list"] = smiles
+    regression_metrics_dict = {
+        "均方误差（推荐） (mean_squared_error)": "mean_squared_error",
+        "平均绝对误差 （推荐）(mean_absolute_error)": "mean_absolute_error",
+        "R² 得分(推荐，衡量模型解释能力) (r2_score)": "r2_score",
+        "中位绝对误差 (median_absolute_error)": "median_absolute_error",
+        "对数均方误差 (mean_squared_log_error)": "mean_squared_log_error",
+        "平均百分比误差 (mean_absolute_percentage_error)": "mean_absolute_percentage_error",
+        "解释方差 (explained_variance_score)": "explained_variance_score"
+    }
 
+    classification_metrics_dict = {
+        "准确率 （推荐）(accuracy_score)": "accuracy_score",
+        "精确率 （推荐）(precision_score)": "precision_score",
+        "召回率 （推荐）(recall_score)": "recall_score",
+        "F1 分数 （推荐）(f1_score)": "f1_score",
+        "ROC AUC （推荐）(roc_auc_score)": "roc_auc_score",
+        "马修斯相关系数 (matthews_corrcoef)": "matthews_corrcoef",
+        "平衡准确率 (balanced_accuracy_score)": "balanced_accuracy_score",
+        "平均精度 (average_precision_score)": "average_precision_score",
+        "Brier 分数损失 (brier_score_loss)": "brier_score_loss"
+    }
+
+        # # 初始化 session_state（记住用户勾选）
+        # if "selected_regression" not in st.session_state:
+        # st.session_state.selected_regression = list(REGRESSION_METRICS.keys())
+
+        # if "selected_classification" not in st.session_state:
+        # st.session_state.selected_classification = list(CLASSIFICATION_METRICS.keys())
+
+    # 标题
+    st.header("✅ 指标选择器")
+
+    # 回归指标多选
+    for key in list(regression_metrics_dict.keys()) + list(classification_metrics_dict.keys()):
+        if key not in st.session_state:
+            st.session_state[key] = False
+
+    st.header("🎯 回归画图指标")
+    selected_regression_keys = []
+    for label, metric in regression_metrics_dict.items():
+        if st.checkbox(label, key=label):
+            selected_regression_keys.append(metric)
+
+    st.header("📊 分类画图指标")
+    selected_classification_keys = []
+    for label, metric in classification_metrics_dict.items():
+        if st.checkbox(label, key=label):
+            selected_classification_keys.append(metric)
+
+    # # 将选择的中文项映射为英文值
+    # regression_tasks = [REGRESSION_METRICS[k] for k in selected_regression]
+    # classification_tasks = [CLASSIFICATION_METRICS[k] for k in selected_classification]
+    # regression_str = ",".join(selected_regression)
+    # classification_str = ",".join(selected_classification)
+
+    # 显示结果
+    # st.markdown("### ✅ 当前选择结果")
+    # st.write("**回归指标**:", regression_tasks)
+    # st.write("**分类指标**:", classification_tasks)
 
     # ----------- 运行按钮 -----------
     if st.button("运行模型配置并保存配置文件"):
@@ -1215,6 +1273,9 @@ else:
         config["name"] = name
         config["target_list"] = target_list
         config["eval"] = st.session_state["eval"]
+        config["regression_tasks"] = ",".join(selected_regression_keys)
+        config["classification_tasks"] = ",".join(selected_classification_keys)
+
         smiles_val = st.session_state.get("smiles_list", "")
         if isinstance(smiles_val, list):
             config["smiles_list"] = ",".join(smiles_val)

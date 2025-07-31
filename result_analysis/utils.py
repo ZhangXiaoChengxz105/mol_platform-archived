@@ -20,6 +20,9 @@ from sklearn.metrics import (
     f1_score, roc_auc_score, matthews_corrcoef
 )
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn import metrics as skm
+import numpy as np
+import inspect
 from matplotlib.ticker import MaxNLocator
 import re
 import sys
@@ -38,12 +41,13 @@ def get_save_path(base_dir, model, dataset, filename, is_model_analysis=False):
     os.makedirs(subfolder, exist_ok=True)
     return os.path.join(subfolder, filename)
 
-def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob,model_dataset_metrics_classification,model,dataset,target, threshold=0.5):
-    #对单个 classification task进行指标计算和可视化
+def finalize_plot_classification_with_metrics(
+    ax, y_true, y_pred_prob, classification_metrics,
+    model_dataset_metrics_classification, model, dataset, target, threshold=0.5
+):
+    # 转为 numpy 数组，过滤 nan
     y_true = np.array(y_true)
     y_pred_prob = np.array(y_pred_prob)
-
-    # ✅ 新增：过滤 NaN
     valid_mask = (~np.isnan(y_true)) & (~np.isnan(y_pred_prob))
     y_true = y_true[valid_mask]
     y_pred_prob = y_pred_prob[valid_mask]
@@ -60,43 +64,42 @@ def finalize_plot_classification_with_metrics(ax, y_true, y_pred_prob,model_data
 
     y_pred = (y_pred_prob >= threshold).astype(int)
 
-    try:
-        acc = accuracy_score(y_true, y_pred)
-        precision = precision_score(y_true, y_pred, zero_division=0)
-        recall = recall_score(y_true, y_pred, zero_division=0)
-        f1 = f1_score(y_true, y_pred, zero_division=0)
-        auc = roc_auc_score(y_true, y_pred_prob)
-        mcc = matthews_corrcoef(y_true, y_pred)
-        model_dataset_metrics_classification[model][dataset][target]["Macro Accuracy"] = acc
-        model_dataset_metrics_classification[model][dataset][target]["Macro Precision"] = precision
-        model_dataset_metrics_classification[model][dataset][target]["Macro Recall"] = recall
-        model_dataset_metrics_classification[model][dataset][target]["Macro F1"] = f1
-        model_dataset_metrics_classification[model][dataset][target]["Macro AUC"] = auc
-        model_dataset_metrics_classification[model][dataset][target]["Macro MCC"] = mcc
+    text_lines = []
 
-        
-    except Exception:
-        acc = precision = recall = f1 = auc = mcc = float('nan')
+    for metric_name in classification_metrics:
+        metric_func = getattr(skm, metric_name, None)
+        if callable(metric_func):
+            try:
+                # 判断函数参数，是否有 y_score（概率）参数
+                sig = inspect.signature(metric_func)
+                if 'y_score' in sig.parameters or 'probas_pred' in sig.parameters:
+                    score = metric_func(y_true, y_pred_prob)
+                else:
+                    score = metric_func(y_true, y_pred)
+            except Exception:
+                score = float('nan')
+            model_dataset_metrics_classification[model][dataset][target][f"Macro {metric_name}"] = score
+            text_lines.append(f"{metric_name}: {score:.3f}")
+        else:
+            text_lines.append(f"{metric_name}: N/A")
 
-    text = (
-        f"Acc: {acc:.3f}  Prec: {precision:.3f}\n"
-        f"Rec: {recall:.3f}  F1: {f1:.3f}\n"
-        f"AUC: {auc:.3f}  MCC: {mcc:.3f}"
-    )
-
-    # ✅ 更新位置防止遮挡 colorbar
     ax.text(
-        0.01, 0.99, text,
+        0.01, 0.99, "\n".join(text_lines),
         transform=ax.transAxes,
         fontsize=10,
         verticalalignment='top',
         horizontalalignment='left',
         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
     )
-    return(model_dataset_metrics_classification)
 
-def finalize_plot_macro_metrics(task_outputs, threshold=0.5):
-    accs, precisions, recalls, f1s, aucs, mccs = [], [], [], [], [], []
+    return model_dataset_metrics_classification
+
+def finalize_plot_macro_metrics(classification_tasks, task_outputs, threshold=0.5):
+    import numpy as np
+    import sklearn.metrics as skm
+
+    metrics_results = {metric: [] for metric in classification_tasks}
+
     for y_true_raw, y_pred_prob_raw in task_outputs:
         y_true = np.array(y_true_raw)
         y_pred_prob = np.array(y_pred_prob_raw)
@@ -109,25 +112,34 @@ def finalize_plot_macro_metrics(task_outputs, threshold=0.5):
             continue
 
         y_pred = (y_pred_prob >= threshold).astype(int)
-        try:
-            accs.append(accuracy_score(y_true, y_pred))
-            precisions.append(precision_score(y_true, y_pred, zero_division=0))
-            recalls.append(recall_score(y_true, y_pred, zero_division=0))
-            f1s.append(f1_score(y_true, y_pred, zero_division=0))
-            aucs.append(roc_auc_score(y_true, y_pred_prob))
-            mccs.append(matthews_corrcoef(y_true, y_pred))
-        except Exception:
-            continue
 
-    def safe_mean(x): return np.nanmean(x) if x else np.nan
-    return {
-        "Macro Accuracy": safe_mean(accs),
-        "Macro Precision": safe_mean(precisions),
-        "Macro Recall": safe_mean(recalls),
-        "Macro F1": safe_mean(f1s),
-        "Macro AUC": safe_mean(aucs),
-        "Macro MCC": safe_mean(mccs),
-    }
+        for metric_name in classification_tasks:
+            metric_func = getattr(skm, metric_name, None)
+            if callable(metric_func):
+                try:
+                    sig = inspect.signature(metric_func)
+                    if 'y_score' in sig.parameters or 'probas_pred' in sig.parameters:
+                        score = metric_func(y_true, y_pred_prob)
+                    else:
+                        score = metric_func(y_true, y_pred)
+                except Exception as e:
+                    print(f"⚠️ Failed to compute metric {metric_name}: {e}")
+                    score = float('nan')
+            else:
+                print(f"⚠️ Metric {metric_name} not found in sklearn.metrics")
+                score = float('nan')
+
+            metrics_results[metric_name].append(score)
+
+    def safe_mean(lst):
+        return np.nanmean(lst) if lst else np.nan
+
+    macro_metrics = {}
+    for metric_name in classification_tasks:
+        pretty_name = metric_name.replace("_score", "").replace("_", " ").capitalize()
+        macro_metrics[f"Macro {pretty_name}"] = safe_mean(metrics_results[metric_name])
+
+    return macro_metrics
 
 def plot_macro_metrics_on_ax(ax, metrics_dict):
     text = "\n".join([f"{k.split()[-1]}: {v:.3f}" for k, v in metrics_dict.items()])
@@ -139,16 +151,16 @@ def plot_macro_metrics_on_ax(ax, metrics_dict):
         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
     )
 
-def update_classification_aggregates(classification_group_data, classification_model_data,
+def update_classification_aggregates(classification_tasks,classification_group_data, classification_model_data,
                                      classification_data, save_dir, get_save_path):
     
-    def compute_and_plot_macro(related_keys, title, save_path, write_plot=True):
+    def compute_and_plot_macro(classification_tasks,related_keys, title, save_path, write_plot=True):
         #这是
         task_outputs = [
             (list(zip(*classification_data[k])) if len(classification_data[k]) > 0 else ([], []))
             for k in related_keys
         ]
-        metrics = finalize_plot_macro_metrics(task_outputs)
+        metrics = finalize_plot_macro_metrics(classification_tasks,task_outputs)
 
         # ✅ 写入 metrics dict
         # if dataset == "all":
@@ -205,7 +217,7 @@ def update_classification_aggregates(classification_group_data, classification_m
         related_keys = [k for k in classification_data if k.startswith(f"{model}::{dataset}::")]
         save_path = get_save_path(save_dir, model, dataset, f"{dataset}_classification_all_targets.png")
         do_plot = len(set(k.split("::")[2] for k in related_keys)) > 1
-        compute_and_plot_macro(related_keys, f"{key} (Macro Avg)", save_path, write_plot=do_plot)
+        compute_and_plot_macro(classification_tasks,related_keys, f"{key} (Macro Avg)", save_path, write_plot=do_plot)
 
     # ✅ Per-model
     for key, values in classification_model_data.items():
@@ -213,13 +225,13 @@ def update_classification_aggregates(classification_group_data, classification_m
         related_keys = [k for k in classification_data if k.startswith(f"{model}::")]
         save_path = get_save_path(save_dir, model, None, f"{model}_classification_all_datasets.png", is_model_analysis=True)
         do_plot = len(set(k.split("::")[1] for k in related_keys)) > 1
-        compute_and_plot_macro( related_keys, f"{model} (All Datasets Macro Avg)", save_path, write_plot=do_plot)
+        compute_and_plot_macro(classification_tasks,related_keys, f"{model} (All Datasets Macro Avg)", save_path, write_plot=do_plot)
 
     # return model_dataset_metrics_dict
 
-def plot_csv_by_task(folder_path, save_dir="plots"):
+def plot_csv_by_task(folder_path,regression_tasks,classification_tasks, save_dir="plots"):
     os.makedirs(save_dir, exist_ok=True)
-
+    print(regression_tasks)
     regression_data = defaultdict(list)
     classification_data = defaultdict(list)
     regression_group_data = defaultdict(list)
@@ -359,7 +371,7 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.9)
             )
         else:
-            model_dataset_metrics_classification = finalize_plot_classification_with_metrics(plt.gca(), y_numeric, pred_probs,model_dataset_metrics_classification,model,dataset,target)
+            model_dataset_metrics_classification = finalize_plot_classification_with_metrics(plt.gca(), y_numeric, pred_probs,classification_tasks,model_dataset_metrics_classification,model,dataset,target)
             classification_group_data[f"{model}::{dataset}"].extend(zip(y_numeric, pred_probs))
             classification_model_data[model].extend(zip(y_numeric, pred_probs))
         
@@ -374,13 +386,14 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
         model, dataset, target = key.split("::")
         save_path = get_save_path(save_dir, model, dataset, f"{dataset}_{target}_regression.png")
         should_include, model_dataset_metrics_regression = plot_regression_with_metrics(
+        regression_metrics =regression_tasks,
         values=values,
         save_path=save_path,
         title_suffix=key,
         model=model,
         dataset=dataset,
         target=target,
-        model_dataset_metrics_regression=model_dataset_metrics_regression
+        model_dataset_metrics_regression=model_dataset_metrics_regression,
         )        
         if should_include:
             regression_group_data[f"{model}::{dataset}"].extend(values)
@@ -399,7 +412,7 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
         # model_dataset_metrics_regression[model][dataset] = metrics
         if len(related_keys) > 1:
             save_path = get_save_path(save_dir, model, dataset, f"{dataset}_regression_all_targets.png")
-            plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (Macro Avg)",external_metrics=metrics)
+            plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (Macro Avg)",regression_metrics =regression_tasks)
 
     # ✅ Model-level regression (multi-dataset per model)
     for key, values in regression_model_data.items():
@@ -413,9 +426,10 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
         # model_dataset_metrics_regression[model]["all"] = metrics
         if len(set(k.split("::")[1] for k in related_keys)) > 1:
             save_path = get_save_path(save_dir, key, None, f"{key}_regression_all_datasets.png", is_model_analysis=True)
-            plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (All Datasets Macro Avg)",external_metrics=metrics)
+            plot_regression_with_metrics(values, save_path, title_suffix=f"{key} (All Datasets Macro Avg)",regression_metrics =regression_tasks)
 
     update_classification_aggregates(
+        classification_tasks,
         classification_group_data=classification_group_data,
         classification_model_data=classification_model_data,
         classification_data=classification_data,
@@ -423,7 +437,7 @@ def plot_csv_by_task(folder_path, save_dir="plots"):
         get_save_path=get_save_path,
     )   
     model_dataset_metrics_classification,model_dataset_metrics_regression = aggregate_metrics(model_dataset_metrics_classification,model_dataset_metrics_regression)
-    plot_analysis_metrics_with_values(
+    plot_analysis_metrics_with_values(regression_tasks, classification_tasks,
         model_dataset_metrics_classification=model_dataset_metrics_classification,
         model_dataset_metrics_regression=model_dataset_metrics_regression,
         save_dir=save_dir
@@ -477,7 +491,8 @@ def plot_macro_regression_on_ax(ax, metrics_dict):
 
 # Regression plot function with metrics
 
-def plot_regression_with_metrics(values, save_path, title_suffix="", model='',dataset ='',target = '',external_metrics=None,model_dataset_metrics_regression=''):
+def plot_regression_with_metrics(values, save_path, title_suffix="", model='',dataset ='',target = '',regression_metrics =None,model_dataset_metrics_regression=''):
+    
     if not values:
         print(f"⚠️ Empty input to plot: {save_path}")
         return False
@@ -531,9 +546,29 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", model='',da
         return False,model_dataset_metrics_regression
 
     # ✅ 强制使用外部提供的指标
-    if external_metrics is not None:
-        metrics = external_metrics
+    if regression_metrics is not None and isinstance(regression_metrics, list):
+        import sklearn.metrics as skm
+        metrics = {}
+        for metric_name in regression_metrics:
+            metric_func = getattr(skm, metric_name, None)
+            if callable(metric_func):
+                try:
+                    score = metric_func(truths, preds)
+                except Exception as e:
+                    print(f"⚠️ Failed to compute metric {metric_name}: {e}")
+                    score = float('nan')
+                metrics[f"Macro {metric_name}"] = score
+            else:
+                print(f"⚠️ Metric {metric_name} not found in sklearn.metrics")
+                metrics[f"Macro {metric_name}"] = float('nan')
+
+        # 是否写入结果字典，取决于变量是不是空字符串
+        if model_dataset_metrics_regression != "":
+            no_count = {k: v for k, v in metrics.items()}
+            model_dataset_metrics_regression[model][dataset][target] = no_count
+
     else:
+        # 固定指标逻辑
         mse = mean_squared_error(truths, preds)
         mae = mean_absolute_error(truths, preds)
         r2 = r2_score(truths, preds)
@@ -544,19 +579,32 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", model='',da
             "Macro R2": r2,
             "Total Samples": count
         }
-        no_count ={
+        no_count = {
             "Macro MSE": mse,
             "Macro MAE": mae,
-            "Macro R2": r2        
+            "Macro R2": r2
         }
-        model_dataset_metrics_regression[model][dataset][target] = no_count
-        
 
-    # 可视化 metrics
-    text = (
-        f"MSE: {metrics['Macro MSE']:.3f}  MAE: {metrics['Macro MAE']:.3f}\n"
-        f"R²: {metrics['Macro R2']:.3f}  N: {metrics['Total Samples']}"
-    )
+        if model_dataset_metrics_regression != "":
+            model_dataset_metrics_regression[model][dataset][target] = no_count
+            
+
+    # 处理展示文本（根据是否需要显示 Macro 决定）
+    display_macro = (model_dataset_metrics_regression == "")
+
+    lines = []
+    for k, v in metrics.items():
+        if k == "Total Samples":
+            continue
+        display_name = k if display_macro else k.replace("Macro ", "")
+        lines.append(f"{display_name}: {v:.3f}")
+
+    # 样本数单独放末尾
+    total_samples = metrics.get("Total Samples", len(truths))
+    lines.append(f"N: {total_samples}")
+
+    # 绘图部分
+    text = "  ".join(lines[i] + ("\n" if (i + 1) % 2 == 0 else "  ") for i in range(len(lines)))
     plt.gca().text(
         0.01, 0.99, text,
         transform=plt.gca().transAxes,
@@ -570,7 +618,8 @@ def plot_regression_with_metrics(values, save_path, title_suffix="", model='',da
     plt.savefig(save_path, dpi=300)
     plt.close()
     print(f"📈 Saved regression plot: {save_path}")
-    return True,model_dataset_metrics_regression
+
+    return True, model_dataset_metrics_regression
 
 
 def aggregate_metrics(model_dataset_metrics_classification, model_dataset_metrics_regression):
@@ -606,7 +655,15 @@ def aggregate_metrics(model_dataset_metrics_classification, model_dataset_metric
 
     return classification_macro, regression_macro
 
-def plot_analysis_metrics_with_values(model_dataset_metrics_classification, model_dataset_metrics_regression, save_dir):
+def plot_analysis_metrics_with_values(regression_tasks, classification_tasks,
+                                      model_dataset_metrics_classification,
+                                      model_dataset_metrics_regression,
+                                      save_dir):
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from collections import defaultdict
+
     def draw_plot(data_dict, metrics_keys, filename_prefix, ylabel):
         os.makedirs(os.path.join(save_dir, "analysis"), exist_ok=True)
         try:
@@ -629,13 +686,16 @@ def plot_analysis_metrics_with_values(model_dataset_metrics_classification, mode
                 x = np.arange(len(metrics_keys))
                 total_width = 0.8
                 width = total_width / len(models)
-                offsets = np.linspace(-total_width/2 + width/2, total_width/2 - width/2, len(models))
+                offsets = np.linspace(-total_width / 2 + width / 2, total_width / 2 - width / 2, len(models))
 
                 for i, model in enumerate(models):
                     vals = values_per_model[model]
                     bar = ax.bar(x + offsets[i], vals, width, label=model)
                     for j, v in enumerate(vals):
-                        ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}", ha='center', va='bottom', fontsize=8)
+                        if np.isnan(v):
+                            continue
+                        ax.text(x[j] + offsets[i], v + 0.01 * max(vals), f"{v:.3f}",
+                                ha='center', va='bottom', fontsize=8)
 
                 ax.set_ylabel(ylabel)
                 ax.set_title(f"{dataset} - {filename_prefix}")
@@ -651,10 +711,10 @@ def plot_analysis_metrics_with_values(model_dataset_metrics_classification, mode
         except Exception as e:
             print(f"❌ No data to plot for {filename_prefix}: {e}")
 
-    # 分类任务
-    classification_metrics = ["Macro Accuracy", "Macro Precision", "Macro Recall", "Macro F1", "Macro AUC", "Macro MCC"]
+    # 分类任务：将 skm 函数名包装为 "Macro ..." 格式
+    classification_metrics = [f"Macro {m}" for m in classification_tasks]
     draw_plot(model_dataset_metrics_classification, classification_metrics, "classification", "Score")
 
-    # 回归任务
-    regression_metrics = ["Macro MSE", "Macro MAE", "Macro R2"]
+    # 回归任务：同样用 "Macro ..." 格式
+    regression_metrics = [f"Macro {m}" for m in regression_tasks]
     draw_plot(model_dataset_metrics_regression, regression_metrics, "regression", "Value")

@@ -147,6 +147,8 @@ def parse_args():
                         help="Whether to plot previous runs (True/False)")
     parser.add_argument('--user_argument',type=str,help = 'user specified argument for model calssification')
     # parser.add_argument('--Model_type', type = str, required = False, help = 'specific arugment for fp model type')
+    parser.add_argument('--regression_tasks',type= str,help ='list of user specified metrics for plotting regression tasks')
+    parser.add_argument('--classification_tasks',type=str,help = 'list of user specified metrics for classification')
     
     return parser.parse_args()
 
@@ -393,13 +395,17 @@ if __name__ == '__main__':
 
         print(f"✅ Results written to {output_path}")
         written_files.append(output_path)
-
+        
+    def comma_separated_list(value):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    regression_tasks = [s.strip() for s in args.regression_tasks.split(",") if s.strip()]
+    classification_tasks = [s.strip() for s in args.classification_tasks.split(",") if s.strip()]
     # ✅ 执行绘图（如果开启 eval 模式）
     if args.eval:
         if not args.plotprevisousruns:
-            plot_csv_by_task(output_dir, save_dir=os.path.join(output_dir,args.plotpath))
+            plot_csv_by_task(output_dir,regression_tasks,classification_tasks, save_dir=os.path.join(output_dir,args.plotpath))
         else:
-            plot_csv_by_task(all_output_dir, save_dir=os.path.join(output_dir,args.plotpath))
+            plot_csv_by_task(all_output_dir,regression_tasks,classification_tasks,save_dir=os.path.join(output_dir,args.plotpath))
 
     else:
         print("⚠️ No results to write.")
